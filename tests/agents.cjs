@@ -85,8 +85,9 @@ const FIX = {
     T(8, 'Aptinkami prieštaringi dokumentų duomenys', conflict.length > 0 && /1500x1500|1,5×1,5|1,50×1,50/.test(conflict[0].replace(/\s/g, '')), conflict[0]);
 
     const scan = await add(['skenuotas.pdf'], true);
-    T(9, 'Veikia skenuotų PDF analizė', null, 'Skenuotas PDF priimamas ir pažymimas „' + scan[0].status + '“ (teksto sluoksnio nėra), tačiau OCR atpažinimas neįdiegtas – turinys neanalizuojamas');
-    T(10, 'Veikia nuotraukų analizė', null, 'Nuotrauka priimama ir rodoma kaip anksčiau, pažymima „neperskaityta“; vaizdo atpažinimas (ašys, matmenys) neįdiegtas');
+    const scanInfo = await ev(() => { const d = KS.ks().docs.find(x => x.name === 'skenuotas.pdf'), P = KS.IDX[d.id][0]; return { read: P.read, err: P.ocrErr || KS.OCR.err || '', ocr: P.ocr }; });
+    T(9, 'Veikia skenuotų PDF analizė (OCR)', scanInfo.read === 'NEPERSKAITYTA' && !scanInfo.err && scan[0].status === 'NEPERSKAITYTA', 'lapas tik su linijomis: OCR paleistas be klaidų, teksto nerasta → „' + scan[0].status + '“. Skenai su tekstu – tests/ocr.cjs (O1–O7)');
+    T(10, 'Veikia nuotraukų analizė (OCR)', null, 'Tikrinama tests/ocr.cjs (O8–O10): nuotrauka pasukta 2° su triukšmu');
     T(11, 'Nustatomos ir tikrinamos pastato ašys', null, 'Ašių žymių kandidatai išrenkami iš teksto (' + f.axes.join(' ') + '), bet ašių linijų geometrija ir jų tarpusavio padėtis netikrinama');
     T(12, 'Tikrinamas mastelis', null, 'Mastelis M 1:' + f.scale + ' perskaitomas iš teksto (kalibracija – esama 📏 funkcija); automatinis mastelio patikrinimas pagal matmenų grandinę neįgyvendintas');
 

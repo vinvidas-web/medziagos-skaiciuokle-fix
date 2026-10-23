@@ -46,6 +46,7 @@ Vartotojas → Planner → Agentai          (užduotys TASK)
 | **6 agentai** | `KS.AG` | žr. žemiau |
 | **Planner** | `KS.Planner` | planas su priklausomybėmis (pvz. tik pamatams → Sienų + Pamatų), užduotys, tarpusavio patikra, grąžinimas taisyti, perdavimas į projektą ir jo patikra, pakartotinės patikros žymėjimas. Specialistų reikšmių nekeičia. |
 | **Dokumentai** | `KS.Docs` | keli PDF / nuotraukos; visi puslapiai indeksuojami; priklausomybės projektui tikrinimas; redakcijų pakeitimai; failai ir indeksas IndexedDB. |
+| **OCR** | `KS.OCR` | skenuoti PDF puslapiai (be teksto sluoksnio) ir nuotraukos atpažįstami Tesseract (žr. žemiau). |
 
 ### Šeši agentai
 
@@ -72,6 +73,14 @@ Visi agentai naudoja tą patį projekto modelį (visi aukštai) ir **visų prisk
 📋 Planner · 🤖 Agentai (užduotis, eiga, objektai, neatitikimai, patikros, „✔ Patvirtinti“) · 📚 Dokumentai (įkėlimas, puslapių laukai, priklausomybė, redakcijos) · 📊 Kiekiai (pagal aukštus, CSV → Excel su kilme, JSON atsarginė kopija) · 📡 Board (pranešimai, užklausos, versijos, konfliktai) · ✎ Pataisymai (istorija, ankstesnių versijų atkūrimas).
 Paspaudus objektą – **kilmė**: šaltinis, matmenys, skaičiavimo eiga, koordinatės, „📍 Rodyti plane“, „📄 Atidaryti brėžinį“ (tas puslapis), „✎ Pataisyti“.
 
+### OCR (skenuoti PDF ir nuotraukos)
+
+- **Variklis:** tesseract.js 7.0.0 + tesseract.js-core 7.0.0 (WebAssembly SIMD, LSTM) + lietuvių kalbos modelis `lit` 4.0.0_best_int (Apache-2.0). Įdėta į `kontura.html` (gzip + base64, kaip pdf.js) – **veikia be interneto**; išskleidžiama tik pirmą kartą prireikus OCR. Failas padidėjo nuo ≈1,9 MB iki ≈6,4 MB. Įdėjimo skriptas: `tools/ideti_ocr.py`.
+- **Kada:** PDF puslapis, kuriame < 3 teksto elementai, ir kiekviena nuotrauka – automatiškai pridedant prie projekto dokumentų (ir atidarant per 📄 PDF). Mygtukas „🔤 OCR“ – atpažinti visą dokumentą iš naujo. OCR galima išjungti; kokybė: greitas (~3200 px) arba tikslus (~6000 px, plytelėmis po 2400 px).
+- **Kaip:** puslapis atvaizduojamas į drobę, atpažįstama du kartus – horizontalus ir 90° pasuktas tekstas (vertikalūs matmenys); žodžių koordinatės perskaičiuojamos į tuos pačius PDF taškus, kuriuos naudoja pagrindinis langas; naudojamos Tesseract eilutės (tinka ir pasvirusiai nuotraukai).
+- **Patikimumas:** kiekvienas žodis turi patikimumą. Žodžiai < 60 % (pasuktiems < 75 %) laukams nenaudojami – rodomi kaip „neaiškūs“. Skaičiuose taisoma O→0, l/I→1. Iš OCR gauti duomenys pažymimi „OCR“ (pvz. pamatų skerspjūvio pasiūlymas, žiniaraščio prieštaravimas) ir lieka tik pasiūlymai.
+- **Pagrindinis langas:** skenuoto puslapio ar nuotraukos OCR žodžiai naudojami kaip tekstas – randamas mastelis „M 1:100“, veikia ilgių patikra pagal matmenis ir angų žymės.
+
 ### Saugojimas
 
 | Kas | Kur |
@@ -84,7 +93,8 @@ Paspaudus objektą – **kilmė**: šaltinis, matmenys, skaičiavimo eiga, koord
 
 | Specifikacijos reikalavimas | Būsena |
 |---|---|
-| Skenuotų PDF ir nuotraukų turinio atpažinimas (OCR, linijų / ašių atpažinimas iš vaizdo) | **Neįgyvendinta.** Tokie puslapiai priimami, rodomi ir pažymimi „neperskaityta“. |
+| Skenuotų PDF ir nuotraukų teksto atpažinimas | **Įgyvendinta (OCR).** Netestuota su tikrais skenais. Neįdiegta: perspektyvos ištiesinimas kampu fotografuotoms nuotraukoms, ranka rašytas tekstas, OCR telefonuose be WebAssembly SIMD (labai seni). |
+| Linijų / ašių atpažinimas iš vaizdo (skenuose) | **Neįgyvendinta** – OCR atpažįsta tik tekstą. |
 | Ašių geometrijos nustatymas ir tikrinimas | Tik ašių žymių kandidatai iš teksto. |
 | Automatinis mastelio patikrinimas pagal matmenų grandinę | Mastelis skaitomas iš teksto „M 1:100“; kalibracija – esama 📏 funkcija. |
 | Pamatų / rostverkų geometrijos atpažinimas iš brėžinio | Juostos išvedamos iš sienų; skerspjūvį tvirtina vartotojas. Rostverkų (ne po sienomis) ir polių nėra. |

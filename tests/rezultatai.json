@@ -61,15 +61,15 @@
  },
  {
   "nr": 9,
-  "name": "Veikia skenuotų PDF analizė",
-  "res": "NETESTUOTA",
-  "note": "Skenuotas PDF priimamas ir pažymimas „NEPERSKAITYTA“ (teksto sluoksnio nėra), tačiau OCR atpažinimas neįdiegtas – turinys neanalizuojamas"
+  "name": "Veikia skenuotų PDF analizė (OCR)",
+  "res": "PASISEKĖ",
+  "note": "lapas tik su linijomis: OCR paleistas be klaidų, teksto nerasta → „NEPERSKAITYTA“. Skenai su tekstu – tests/ocr.cjs (O1–O7)"
  },
  {
   "nr": 10,
-  "name": "Veikia nuotraukų analizė",
+  "name": "Veikia nuotraukų analizė (OCR)",
   "res": "NETESTUOTA",
-  "note": "Nuotrauka priimama ir rodoma kaip anksčiau, pažymima „neperskaityta“; vaizdo atpažinimas (ašys, matmenys) neįdiegtas"
+  "note": "Tikrinama tests/ocr.cjs (O8–O10): nuotrauka pasukta 2° su triukšmu"
  },
  {
   "nr": 11,
@@ -159,13 +159,13 @@
   "nr": 21,
   "name": "Projektas išsaugomas",
   "res": "PASISEKĖ",
-  "note": "{\"pid\":\"prj_mvlely35dyucy\",\"h\":\"ipp9hr\",\"docs\":4,\"saved\":true,\"log\":174}"
+  "note": "{\"pid\":\"prj_mvlewhxu7qvua\",\"h\":\"1mia3em\",\"docs\":4,\"saved\":true,\"log\":174}"
  },
  {
   "nr": 22,
   "name": "Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija)",
   "res": "PASISEKĖ",
-  "note": "{\"pid\":\"prj_mvlely35dyucy\",\"h\":\"ipp9hr\",\"docs\":4,\"idx\":5,\"log\":174,\"st\":\"COMPLETED\"}"
+  "note": "{\"pid\":\"prj_mvlewhxu7qvua\",\"h\":\"1mia3em\",\"docs\":4,\"idx\":5,\"log\":174,\"st\":\"COMPLETED\"}"
  },
  {
   "nr": "22a",

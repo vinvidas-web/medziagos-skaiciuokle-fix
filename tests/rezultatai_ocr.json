@@ -1,0 +1,74 @@
+[
+ {
+  "nr": "O1",
+  "name": "Skenuotas PDF: tekstas atpažįstamas OCR (be interneto)",
+  "res": "PASISEKĖ",
+  "note": "OCR, 23 žodžių, vid. patikimumas 94 %, neaiškių 0, laikas 5 s"
+ },
+ {
+  "nr": "O2",
+  "name": "Skenas: mastelis, brėžinio Nr., laida",
+  "res": "PASISEKĖ",
+  "note": "M 1:100 · SRBS32-01-TDP-SK-02 · laida 0"
+ },
+ {
+  "nr": "O3",
+  "name": "Skenas: horizontalus ir vertikalus matmuo",
+  "res": "PASISEKĖ",
+  "note": "matmenys: 12000, 8000"
+ },
+ {
+  "nr": "O4",
+  "name": "Skenas: lietuviškos raidės, adresas, pamatų turinys",
+  "res": "PASISEKĖ",
+  "note": "adresas: Senolių g. 32 · turinys: fnd"
+ },
+ {
+  "nr": "O5",
+  "name": "Skenas: dydžiai, altitudė, medžiaga",
+  "res": "PASISEKĖ",
+  "note": "dydžiai 600x400 · altitudės -1.2 · c25/30"
+ },
+ {
+  "nr": "O6",
+  "name": "Pamatų agentas: OCR skerspjūvis – tik pasiūlymas su žyma „OCR“",
+  "res": "PASISEKĖ",
+  "note": "Pamato skerspjūvis (plotis × aukštis) nepatvirtintas – dokumentuose rasta: 600×400 (skenas.pdf 1 psl., OCR). Įveskite arba patvirtinkite – spėjimas nenaudojamas."
+ },
+ {
+  "nr": "O7",
+  "name": "Pagrindinis langas: skeno mastelis ir tekstai iš OCR",
+  "res": "PASISEKĖ",
+  "note": "{\"n\":23,\"ocr\":true,\"scale\":100}"
+ },
+ {
+  "nr": "O8",
+  "name": "Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai",
+  "res": "PASISEKĖ",
+  "note": "žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 88 % · 11 s"
+ },
+ {
+  "nr": "O9",
+  "name": "Nuotrauka priskiriama projektui pagal OCR adresą",
+  "res": "PASISEKĖ",
+  "note": "AUTO · Senolių g. 32"
+ },
+ {
+  "nr": "O10",
+  "name": "Žiniaraštis iš nuotraukos: prieštaravimas pažymimas kaip OCR",
+  "res": "PASISEKĖ",
+  "note": "Prieštaravimas: L-1 modelyje 1,20×1,50, nuotrauka.jpg 1 psl. – 1,50×1,50 (atpažinta OCR – patikrinkite brėžinyje) (nesirenkama automatiškai)"
+ },
+ {
+  "nr": "O11",
+  "name": "Pasvirusi nuotrauka (perspektyva) ir ranka rašytas tekstas",
+  "res": "NETESTUOTA",
+  "note": "Perspektyvos ištiesinimas neįdiegtas; ranka rašyto teksto Tesseract patikimai neatpažįsta"
+ },
+ {
+  "nr": "E",
+  "name": "Nebuvo JavaScript klaidų",
+  "res": "PASISEKĖ",
+  "note": ""
+ }
+]
