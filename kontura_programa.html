@@ -3077,11 +3077,20 @@ async function pdfLoadPage(p, quiet) {
         // tekstas – mastelis „M 1:100“
         const texts = await pdfTexts(pg, vp1); let scaleN = 0; { const all = texts.map(t => t.s).join(' '); const m = all.match(/M\s*1\s*:\s*(\d{1,4})/i); if (m) scaleN = Number(m[1]); }
         // linijos prilipimui
-        const segs = pdfMerge(await pdfSegments(pg, vp1));
+        const segs = pdfVisSegs(pdfMerge(await pdfSegments(pg, vp1)), cv, vp1);
         PDFU.page = p; PDFU.cv = cv; PDFU.W = vp1.width; PDFU.H = vp1.height; PDFU.segs = segs; PDFU.grid = pdfGrid(segs); PDFU.scaleN = scaleN; PDFU.texts = texts; PDFU.fills = (window.__pdfFills || []).map(f => { const xs = f.p.map(q => q[0]), ys = f.p.map(q => q[1]); return { col: f.col, p: f.p, bb: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }; });
         if (pdfFx('flpg') || !pdfCfg().fl[project.fl || 0]) pdfCfg().fl[project.fl || 0] = p; PDFU.lastFl = project.fl || 0; save();
         pdfBusy = false; if (!quiet) pdfFitView(); requestDraw(); if (!quiet) pdfAfterLoad();
     } catch (e) { pdfBusy = false; showToast('Nepavyko paruošti puslapio: ' + (e && e.message ? e.message : e), 4000); }
+}
+function pdfVisSegs(S, cv, vp1) { // paliekamos tik matomos linijos: apkarpyta brūkšniuotė, paslėptos linijos PDF faile būna per visą lapą
+    try { const W = Math.ceil(vp1.width), H = Math.ceil(vp1.height), c2 = document.createElement('canvas'); c2.width = W; c2.height = H; const x = c2.getContext('2d');
+        x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, W, H);
+        const id = x.getImageData(0, 0, W, H).data, dk = (X, Y) => { let m = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = X + dx, yy = Y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue; const j = (yy * W + xx) * 4; m = Math.max(m, 255 - (0.299 * id[j] + 0.587 * id[j + 1] + 0.114 * id[j + 2])); } return m; };
+        const out = []; for (let i = 0; i < S.length; i += 4) { const L = Math.hypot(S[i + 2] - S[i], S[i + 3] - S[i + 1]), n = Math.max(2, Math.min(60, Math.round(L / 2))); let vis = 0;
+            for (let k = 0; k <= n; k++) { const f = k / n; if (dk(Math.round(S[i] + (S[i + 2] - S[i]) * f), Math.round(S[i + 1] + (S[i + 3] - S[i + 1]) * f)) >= 20) vis++; }
+            if (vis >= (n + 1) * 0.6) out.push(S[i], S[i + 1], S[i + 2], S[i + 3]); }
+        return out.length >= S.length * 0.05 ? new Float32Array(out) : S; } catch (e) { return S; }
 }
 async function pdfSegments(pg, vp1) { // visos tiesios linijos (pdf taškais, y žemyn); užpildyti daugiakampiai – PDFU.fillsTmp
     const out = [], fills = []; window.__pdfFills = fills; try {
@@ -3282,7 +3291,8 @@ function pdfOutTap(sn) {
     let w = { len: Math.round(len * 200) / 200, mode: 'L', t: s.t, dir, name: '', hMode: 'one', h: s.h, h1: '', h2: '', hx: '', hm: '' };
     if (closing) { // paskutinė siena – tiksliai uždaro kontūrą
         const tz = pdfWallThick(m.outPdf.concat([m.outPdf[0]]), c); const nW = project.walls.length;
-        if (tz.length === nW + 1 && m.outPdf.length === nW + 1) { tz.forEach((t, i) => { if (t) { if (i < nW) project.walls[i].t = t; else w.t = t; } }); m.thickTxt = [...new Set(tz.filter(Boolean).map(t => fmtT(t)))].join(', '); }
+        let tz2 = []; if (tz.some(t => !t)) { try { agvWalls(null); tz2 = agvThick(m.outPdf.concat([m.outPdf[0]])); } catch (e) { } }
+        if (tz.length === nW + 1 && m.outPdf.length === nW + 1) { tz.forEach((t, i) => { if (!t) t = tz2[i] || 0; if (t) { if (i < nW) project.walls[i].t = t; else w.t = t; } }); m.thickTxt = [...new Set(tz.filter(Boolean).map(t => fmtT(t)))].join(', '); }
         for (let it = 0; it < 30; it++) { const R2 = Geo.compute(project.walls.concat([w]), true), n = R2.n, a0 = R2.P[n - 1], z = R2.P[0], need = Math.hypot(z[0] - a0[0], z[1] - a0[1]), cw = R2.walls[n - 1].C;
             const nd = (Math.atan2(z[1] - a0[1], z[0] - a0[0]) * 180 / Math.PI + 360) % 360; if (Math.abs(need - cw) < 1e-7 && Math.abs(Geo.norm180(nd - w.dir)) < 1e-7) break;
             w = Object.assign({}, w, { len: w.len + (need - cw), dir: nd }); }
@@ -3303,7 +3313,7 @@ function pdfReanchor() { // brėžinio k1 = kontūro išorinis kampas k1 (R.OUT[
     c.wx = nw[0]; c.wy = nw[1]; const after = W2S(nw, view);
     view.ox += before[0] - after[0]; view.oy += before[1] - after[1]; userMovedView = true; save(); requestDraw();
 }
-function pdfAddInner(a, b) {
+function pdfAddInner(a, b, tHint) {
     const s = project.settings; if (!R || !R.closed) return;
     let L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.2) { showToast('Per trumpa pertvara', 1500); return; }
     let d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
@@ -3313,14 +3323,16 @@ function pdfAddInner(a, b) {
         if (bw) { const mid0 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], h = ((b[0] - a[0]) * bw[0] + (b[1] - a[1]) * bw[1]) / 2; d = bw; a = [mid0[0] - d[0] * h, mid0[1] - d[1] * h]; b = [mid0[0] + d[0] * h, mid0[1] + d[1] * h]; L = 2 * h; } }
     let nrm = [-d[1], d[0]];
     // storis ir ašis iš brėžinio: artimiausios lygiagrečios linijos abipus
-    let t = Number(s.tIn) || 0.12, off = 0;
+    let t = tHint > 0 ? tHint : (Number(s.tIn) || 0.12), off = 0;
     if (PDFU && PDFU.segs && PDFU.segs.length) { const c = pdfCal(), S = PDFU.segs, neg = [], pos = [];
         for (let i = 0; i < S.length; i += 4) { const p = P2W([S[i], S[i + 1]], c), q = P2W([S[i + 2], S[i + 3]], c), sl = Math.hypot(q[0] - p[0], q[1] - p[1]); if (sl < 0.15) continue;
             const e = [(q[0] - p[0]) / sl, (q[1] - p[1]) / sl]; if (Math.abs(e[0] * d[1] - e[1] * d[0]) > 0.035) continue;
             const o1 = (p[0] - a[0]) * nrm[0] + (p[1] - a[1]) * nrm[1], o2 = (q[0] - a[0]) * nrm[0] + (q[1] - a[1]) * nrm[1]; if (Math.abs(o1 - o2) > 0.01) continue; const o = (o1 + o2) / 2; if (Math.abs(o) > 0.32) continue;
             const u1 = (p[0] - a[0]) * d[0] + (p[1] - a[1]) * d[1], u2 = (q[0] - a[0]) * d[0] + (q[1] - a[1]) * d[1], ov = Math.min(L, Math.max(u1, u2)) - Math.max(0, Math.min(u1, u2)); if (ov < Math.min(0.5, L * 0.3)) continue;
             (o < 0 ? neg : pos).push(o); }
-        const o1 = neg.length ? Math.max(...neg) : null, o2 = pos.length ? Math.min(...pos) : null;
+        let o1 = neg.length ? Math.max(...neg) : null, o2 = pos.length ? Math.min(...pos) : null;
+        if (tHint > 0 && (o1 == null || o2 == null || Math.abs(o2 - o1 - tHint) > 0.05)) { let bp = null; neg.forEach(a => pos.forEach(b => { const e = Math.abs(b - a - tHint); if (b - a >= 0.05 && b - a <= 0.5 && e <= 0.05 && (!bp || e < bp.e)) bp = { a, b, e }; }));
+            if (bp) { o1 = bp.a; o2 = bp.b; } else if (S.length >= 160) return; else { o1 = o2 = null; neg.length = pos.length = 0; } } // brėžinys su linijomis, o tokios poros nėra – ne siena
         if (o1 != null && o2 != null && o2 - o1 >= 0.05 && o2 - o1 <= 0.5) { t = Math.round((o2 - o1) * 100) / 100; off = (o1 + o2) / 2; }
         else if (o1 != null && o2 == null && -o1 < 0.3) { off = o1 + t / 2; } else if (o2 != null && o1 == null && o2 < 0.3) { off = o2 - t / 2; } }
     a = [a[0] + nrm[0] * off, a[1] + nrm[1] * off]; b = [b[0] + nrm[0] * off, b[1] + nrm[1] * off];
@@ -3338,6 +3350,7 @@ function pdfAddInner(a, b) {
     let Lw = -1, bestD = Infinity; const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     R.walls.forEach((w, i) => { const wl = Math.hypot(w.ib[0] - w.ia[0], w.ib[1] - w.ia[1]); if (!(wl > 0.05)) return; const e = [(w.ib[0] - w.ia[0]) / wl, (w.ib[1] - w.ia[1]) / wl];
         if (Math.abs(e[0] * d[1] - e[1] * d[0]) > 0.035) return; const dist = Math.abs((mid[0] - w.ia[0]) * e[1] - (mid[1] - w.ia[1]) * e[0]); if (dist < bestD) { bestD = dist; Lw = i; } });
+    if (typeof AG !== 'undefined' && AG.forceL != null && R.walls[AG.forceL]) Lw = AG.forceL; // agentas bando kitą lygiagrečią sieną (L formos pastatai)
     if (Lw < 0) { showToast('Nerasta lygiagreti išorinė siena – pertvara turi būti lygiagreti kuriai nors išorinei sienai', 3200); return; }
     snapshot();
     const w = Object.assign({ L: Lw, M: 0, t, name: '', hMode: 'one', h: s.h, h1: '', h2: '', hx: '', hm: '' }, fixRing({}), fixWallX({ af: 'V' }, 'i'));
@@ -3623,12 +3636,16 @@ function pdfAutoContour(wp) {
     return null;
 }
 function pdfAutoPropose(sn) {
-    const pts = pdfAutoContour(sn.p);
-    if (!pts || pts.length < 3) { showToast('Automatiškai kontūro rasti nepavyko – brėžkite ranka: šis kampas k1, toliau bakstelėkite kitus', 3800); pdfMode.kind = 'out'; pdfOutTap(sn); updPdfBar(); return; }
-    const c = pdfCal(), W = pts.map(p => P2W(p, c)); pdfMode.prop = W;
+    let pts = pdfAutoContour(sn.p), how = '';
+    if (!pts || pts.length < 3) { pts = agvContour(sn.p); how = ' (pagal brėžinio vaizdą)'; } // mūras užbrūkšniuotas, tik apvestas ar kitos spalvos
+    if (!pts || pts.length < 3) { if (typeof AG !== 'undefined' && AG.noManual) return; showToast('Automatiškai kontūro rasti nepavyko – brėžkite ranka: šis kampas k1, toliau bakstelėkite kitus', 3800); pdfMode.kind = 'out'; pdfOutTap(sn); updPdfBar(); return; }
+    const c = pdfCal(); pdfProposePts(pts.map(p => P2W(p, c)), how);
+}
+function pdfProposePts(W, how) { // pasiūlomas rastas kontūras (pasaulio taškai) – priimti arba brėžti ranka
+    const c = pdfCal(); pdfMode.prop = W;
     const L = W.map((p, i) => { const q = W[(i + 1) % W.length]; return Math.round(Math.hypot(q[0] - p[0], q[1] - p[1]) * 1000); });
     requestDraw();
-    openSubpanel('✨ Rastas kontūras', `<div class="f-note" style="font-size:15px">Rasta <b>${W.length}</b> išorės sienų (oranžinė linija). Ilgiai pagal išorę, mm:</div><div class="f-note"><b>${L.join(' · ')}</b></div>
+    openSubpanel('✨ Rastas kontūras', `<div class="f-note" style="font-size:15px">Rasta <b>${W.length}</b> išorės sienų${esc(how || '')} (oranžinė linija). Ilgiai pagal išorę, mm:</div><div class="f-note"><b>${L.join(' · ')}</b></div>
       <div class="f-note">Patikrinkite, ar linija eina išoriniais mūro kampais. Jei ne – „Ne, brėšiu ranka“.</div>
       <div class="f-btns"><button class="f-btn pri" id="fY">✔ Priimti</button><button class="f-btn" id="fN">Ne, brėšiu ranka</button></div>`, sp => {
         sp.querySelector('#fY').onclick = () => { closeSubpanel(); const m = pdfMode; m.prop = null; m.kind = 'out'; m.outPdf = []; m.autoFlow = true;
@@ -3848,6 +3865,7 @@ function pdfFindOpeningsList(diag) {
     diag = diag || []; let A = [], B = [];
     try { A = pdfFindByInk(diag); } catch (e) { diag.push('tamsumo klaida: ' + (e && e.message)); }
     try { B = pdfFindByFill(); } catch (e) { diag.push('užpildų klaida: ' + (e && e.message)); }
+    try { const C = agvFindOpenings().concat(agvFindOpeningsRaster()); C.forEach(f => { if (!B.some(b => b.wk === f.wk && b.wi === f.wi && b.pos < f.pos + f.w - 0.05 && b.pos + b.w > f.pos + 0.05)) B.push(f); }); } catch (e) { diag.push('paviršių klaida: ' + (e && e.message)); }
     // sujungiama: užpildų rezultatas tikslesnis – jei sutampa, imamas jis; kitaip pridedama
     const all = A.slice(); B.forEach(b => { const k = all.findIndex(a => a.wk === b.wk && a.wi === b.wi && a.pos < b.pos + b.w - 0.05 && a.pos + a.w > b.pos + 0.05); if (k >= 0) all[k] = Object.assign(b, { mark: b.mark || all[k].mark }); else all.push(b); });
     all.sort((p, q) => q.wk.localeCompare(p.wk) || p.wi - q.wi || p.pos - q.pos);
@@ -4054,9 +4072,12 @@ function updAgentChip() {
 }
 async function agentPickPage(K) { // planas: išmokto pavadinimo puslapis; jei neaišku – paklausia jūsų ir įsimena
     if (!PDFU || !PDFU.doc) return false; if (PDFU.n === 1) { if (!PDFU.cv) await pdfLoadPage(1, true); return true; }
-    const kw = (K.pageKw || '').toLowerCase().replace(/[^a-ząčęėįšųūž0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3), cand = [];
+    const kw = agentNorm(K.pageKw || '').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3), cand = [], fk = (project.fl || 0), ORD = ['pirmo', 'antro', 'trecio', 'ketvirto', 'penkto', 'sesto'];
     for (let p = 1; p <= PDFU.n; p++) { if (AG.stop) return false; try { const pg = await PDFU.doc.getPage(p), tc = await pg.getTextContent(), txt = tc.items.map(t => t.str).join(' ').toLowerCase();
-        let sc = 0; kw.forEach(w => { if (txt.includes(w)) sc += 2; }); if (/plan/.test(txt)) sc += 1; if (/(pirmo|1)\s*aukšto\s*planas/.test(txt)) sc += 2; if (/pjūvis|fasadas|stogo/.test(txt)) sc -= 1; if (/m\s*1\s*:\s*\d+/.test(txt)) sc += 1;
+        const tn = agentNorm(txt); let sc = 0; kw.forEach(w => { if (tn.includes(w)) sc += 2; }); if (/plan/.test(tn)) sc += 1;
+        if (new RegExp('(' + ORD[fk] + '|' + (fk + 1) + ')\\s*(-?(ojo|o|a)\\s*)?(aukst\\S*|a\\.)\\s*plan').test(tn)) sc += 2; else if (/(aukst\S*|a\.)\s*plan/.test(tn)) sc += 1;
+        if (/(sienu|muro|murijimo|mūro)\s*plan/.test(tn)) sc += 1; if (/(pjuv|fasad|stogo|situacij|sklyp|mazg|schem|specifikac|ziniarast|aiskinam|bendroji dalis|titul|vizualizac)/.test(tn)) sc -= 1;
+        if (/m\s*1\s*:\s*\d+/.test(tn)) sc += 1; if ((tn.match(/\b\d{3,5}\b/g) || []).length >= 15) sc += 1;
         cand.push([p, sc]); } catch (e) { } }
     cand.sort((a, b) => b[1] - a[1]);
     const unsure = !cand.length || cand[0][1] < 2 || (cand[1] && cand[1][1] === cand[0][1]);
@@ -4100,17 +4121,25 @@ async function agentRun() {
         agentSay('Ieškau aukšto plano…'); await agentWait(400);
         if (!PDFU.cv || (PDFU.n > 1 && !pdfCfg().fl[project.fl || 0])) { if (!(await agentPickPage(K))) throw new Error('Nepavyko parinkti puslapio – pasirinkite patys (📄 Kitas puslapis)'); }
         done.push('puslapis ' + PDFU.page);
-        const c = pdfCal(); if (!c.ok) throw new Error('Brėžinyje nerastas mastelis – nustatykite „📏 Mastelis“ ir paleiskite dar kartą');
+        { const sc = project.walls.length ? null : agvEnsureScale(); if (sc) { done.push(sc); agentSay('Mastelis: ' + sc); await agentWait(700); } }
+        const c = pdfCal(); if (!c.ok) throw new Error('Brėžinyje neradau nei mastelio užrašo (M 1:100), nei matmenų – nustatykite „📏 Mastelis“ (2 taškai ir tikras matmuo) ir paleiskite dar kartą');
         const s = project.settings; if (K.h) s.h = K.h; if (K.ringH) s.ringH = K.ringH; if (K.tIn) s.tIn = K.tIn; if (K.blockH) s.blockH = K.blockH; if (K.block0) s.block0 = K.block0; if (K.excelType) s.excelType = K.excelType; if (K.excelTypeIn) s.excelTypeIn = K.excelTypeIn;
         if (K.lint) s.lastOpen = Object.assign({}, K.lint);
         if (!project.walls.length) {
-            agentSay('Ieškau išorinio mūro kampo…'); const cr = agentCorner(K); if (!cr) throw new Error('Brėžinyje neradau nuspalvinto mūro – sienas sudėkite patys (🧱), angas agentas suras');
+            agentSay('Ieškau išorinio mūro kampo…'); const cr = agentCorner(K);
             pdfFitView(); requestDraw(); await agentWait(500);
-            const w = P2W(cr.pt); view.s = Math.max(view.s, 40); agentShow(w); await agentWait(300);
-            pdfStart('auto'); updPdfBar(); await agentWait(300);
-            agentSay('Bakstelėjau kampą – programa apeina kontūrą');
-            await agentTapWorld(w, (x, y) => pdfTap(x, y)); await agentWait(700);
-            if (!document.querySelector('#subpanel #fY')) throw new Error('Kontūro automatiškai neradau – sudėkite sienas patys (🧱), tada vėl „▶ Daryk“');
+            if (cr) { // 1) pagal mūro spalvą (kaip mokė)
+                const w = P2W(cr.pt); view.s = Math.max(view.s, 40); agentShow(w); await agentWait(300);
+                pdfStart('auto'); updPdfBar(); await agentWait(300);
+                agentSay('Bakstelėjau kampą – programa apeina kontūrą');
+                AG.noManual = true; try { await agentTapWorld(w, (x, y) => pdfTap(x, y)); } finally { AG.noManual = false; } await agentWait(700); }
+            if (!document.querySelector('#subpanel #fY')) { // 2) pagal brėžinio vaizdą – tinka bet kokiam braižymo stiliui
+                closeSubpanel(); if (pdfMode) { pdfMode = null; updPdfBar(); }
+                agentSay(cr ? 'Pagal spalvą nepavyko – žiūriu į brėžinį: sienas atpažįstu pagal storį ir formą…' : 'Mūras nenuspalvintas – žiūriu į brėžinį: sienas atpažįstu pagal storį ir formą…'); await agentWait(400);
+                const pts = agvContour(null); if (!pts) throw new Error('Pastato kontūro neradau – sudėkite išorės sienas patys (🧱) arba „✨ Kontūras“ bakstelėję kampą, tada vėl „▶ Daryk“: pertvaras ir angas surasiu');
+                pdfFitView(); requestDraw(); await agentWait(300); const w = P2W(pts[0]); agentShow(w); pdfStart('auto'); updPdfBar(); await agentWait(300);
+                agentSay('Radau pastato kontūrą – ' + pts.length + ' sienos. Parodau'); await agentTapWorld(w, () => pdfProposePts(pts.map(p => P2W(p)), ' (pagal brėžinio vaizdą)')); await agentWait(900);
+                if (!document.querySelector('#subpanel #fY')) throw new Error('Kontūro automatiškai neradau – sudėkite sienas patys (🧱), tada vėl „▶ Daryk“'); }
             AG.noAutoOpen = true; await agentTapEl('#subpanel #fY'); await agentWait(1200); closeSubpanel(); AG.noAutoOpen = false;
             if (!project.closed) throw new Error('Kontūras neužsidarė – patikrinkite sienas');
             done.push(project.walls.length + ' išorės sienos'); fitView(); requestDraw(); await agentWait(600);
@@ -4118,18 +4147,8 @@ async function agentRun() {
         if (pdfMode) { pdfMode = null; updPdfBar(); }
         // išmoktos sienų savybės (žiedas, aukščiai, nuolydžiai…)
         const G = K.gen; if (G && G.outer) { agentSay('Taikau, ką išmokau apie išorės sienas…'); const n1 = await agentApplyGen({ outer: G.outer, outerEx: G.outerEx }); if (n1) done.push('pataisyta sienų: ' + n1); }
-        // pertvaros
-        const F = (PDFU.fills || []).filter(f => f.col !== '255,255,255' && f.col !== '0,0,0');
-        let pc = K.partCol; const mc = K.masCol || (agentCorner(K) || {}).col;
-        if (!pc && F.length) { const cnt = {}; F.forEach(f => { if (f.col === mc) return; const v = f.col.split(',').map(Number); if (Math.max(...v) - Math.min(...v) < 12) cnt[f.col] = (cnt[f.col] || 0) + 1; }); pc = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0]; }
-        if (pc) { const pcs = F.filter(f => f.col === pc).map(f => { const ctr = [(f.bb[0] + f.bb[2]) / 2, (f.bb[1] + f.bb[3]) / 2]; return { w: P2W(ctr), L: Math.max(f.bb[2] - f.bb[0], f.bb[3] - f.bb[1]) * pdfCal().mpp }; }).filter(x => x.L > 0.3 && pointInPoly(x.w, R.IN)).sort((a, b) => b.L - a.L);
-            let nIn = 0; pdfStart('in'); updPdfBar();
-            for (const x of pcs) { if (AG.stop) throw new Error('stop'); if (RI && RI.walls.some(r => r.poly && pointInPoly(x.w, r.poly))) continue;
-                agentSay('Pertvaros: ' + (nIn + 1)); const before = project.inner.length; await agentTapWorld(x.w, () => { try { pdfInnerOneTap(x.w); } catch (e) { } });
-                if (project.inner.length > before) { const r0 = RI.walls[project.inner.length - 1], w0 = project.inner[project.inner.length - 1];
-                    if (r0 && ((K.exclIn || []).some(q => Math.abs(q.len - r0.len) < 0.04 && Math.abs(q.t - (Number(w0.t) || 0)) < 0.011) || (K.minIn > 0 && r0.len < K.minIn))) { project.inner.pop(); changed(true); agentSay('Šios pertvaros praeitą kartą nenorėjote – praleidžiu'); await agentWait(500); }
-                    else nIn++; } await agentWait(250); }
-            pdfMode = null; updPdfBar(); if (nIn) done.push(nIn + ' pertvaros'); fitView(); requestDraw(); await agentWait(500); }
+        // pertvaros – pagal spalvą ir pagal brėžinio vaizdą
+        { const nIn = await agentInnerStep(K); if (nIn) done.push(nIn + ' pertvaros'); fitView(); requestDraw(); await agentWait(500); }
         if (G && G.inner) { agentSay('Taikau, ką išmokau apie pertvaras…'); await agentApplyGen({ inner: G.inner }); }
         // angos
         agentSay('Ieškau angų visose sienose…'); await agentWait(400);
@@ -4314,51 +4333,6 @@ function agentTeach(rules, text) { // pamoka iš pokalbio
     const st = agentStore(); st.lessons.push({ id: Date.now(), auto: true, chat: true, date: new Date().toISOString().slice(0, 16).replace('T', ' '), project: project.name, pdf: PDFU ? PDFU.name : '', src: agentSrc(), rules, text: ['Iš pokalbio: ' + text] });
     agentStore(st);
 }
-function agentUnderstand(raw) {
-    const t = ' ' + raw.toLowerCase().replace(/\s+/g, ' ') + ' ', num = s => { let v = parseFloat(String(s).replace(',', '.')); if (v > 20) v = v / 1000; return v; };
-    const say = (m, b) => agentMsg('ag', m, b);
-    const askApply = what => say('Įsiminiau: ' + what + '. Pritaikyti dabartiniam projektui?', [['Taip, pritaikyk', 'taikyk'], ['Ne', 'gerai']]);
-    if (/^\s*(gerai|ačiū|aciu|ok|aišku)\b/.test(t)) { say('👍'); return; }
-    if (/^\s*(labas|sveikas|sveiki|labą|laba diena|labas vakaras)\b/.test(t)) { const lv = agentLevel(); say('Labas! ' + lv.ic + ' Esu ' + lv.name.toLowerCase() + '. Ką darome? Parašykite „daryk“ arba „ką moki?“.'); return; }
-    if (/(kas tu|kas esi|kuo vardu)/.test(t)) { say('Aš – jūsų Kontūro agentas. Dirbu tik šioje programėlėje, be interneto. Mokausi iš to, ką darote ir taisote, ir iš to, ką parašote.'); return; }
-    if (/(pagalb|ką supranti|ka supranti|komandos)/.test(t)) { say('Suprantu tokius sakinius:\n• daryk / stop\n• ką moki? · kas negerai? · kiekiai\n• L-1 aukštis 1,5 (bet kuriai žymei)\n• durys 2,1 · langai 1,5 (be žymės)\n• sienos aukštis 2,8 · sienos su žiedu / be žiedo\n• pertvaros aukštis 2,7 · pertvaros be žiedo\n• žiedas 0,25\n• sąramos liejamos / montuojamos / nėra, užlaida 0,25, aukštis 0,22\n• blokelis 200\n• neimk pertvarų trumpesnių nei 1 m\n• taikyk – pritaikyti, ką išmokau, dabartiniam projektui\n• pamiršk L-1 · pamiršk viską'); return; }
-    if (/\b(daryk|pradėk|pradek|start|padaryk)\b/.test(t)) { if (AG.run) { say('Jau dirbu…'); return; } say('Pradedu. Matysite mano pirštą 👆'); AG.chatOpen = false; closeSubpanel(); agentRun(); return; }
-    if (/\b(stop|sustok|stabdyk|užteks)\b/.test(t)) { AG.stop = true; say(AG.run ? 'Stabdau.' : 'Nieko nedarau.'); return; }
-    if (/(ką moki|ka moki|ką žinai|ka zinai|ką išmokai|ka ismokai)/.test(t)) { const K = agentKnow(), lv = agentLevel(); const kn = agentKnowText(K).concat(K.gen ? agentGenText(K.gen) : []);
-        say(lv.ic + ' ' + lv.name + ' (patirtis ' + lv.xp + ', pamokų ' + agentStore().lessons.length + ').\n' + (kn.length ? '• ' + kn.join('\n• ') : 'Kol kas nieko nemoku – parodykite arba parašykite.')); return; }
-    if (/(kas negerai|klaid|patikr|problem)/.test(t)) { if (!R || !R.n) { say('Projekte dar nėra sienų.'); return; }
-        const bad = QC.concat(RI && RI.m ? RI.checks : []).filter(c => c.status === 'KLAIDA' || c.status === 'ĮSPĖJIMAS');
-        say(bad.length ? bad.slice(0, 6).map(c => (c.status === 'KLAIDA' ? '✖ ' : '⚠ ') + c.name + (c.note ? ' – ' + c.note.slice(0, 140) : '')).join('\n') : '✔ Patikros praėjo – klaidų nėra.'); return; }
-    if (/(kiek|suvestin|kubatūr|kvadratūr)/.test(t)) { if (!Q || !Q.tot || !R || !R.n) { say('Dar nėra ką skaičiuoti – projekte nėra sienų. Parašykite „daryk“.'); return; } const T = Q.tot;
-        say('Mūras: ' + fmt(T.BK) + ' m², ' + fmt(T.BV, 3) + ' m³\nAngų: ' + (T.nOpen || 0) + ' (' + fmt(T.AD || 0) + ' m²)\nŽiedas: ' + fmt(T.CE || 0) + ' m, ' + fmt(T.CF || 0, 3) + ' m³\nSienų: ' + R.n + ', pertvarų: ' + (RI ? RI.m : 0)); return; }
-    if (/(pamiršk|pamirsk)\s+(viską|viska)/.test(t)) { say('Tikrai pamiršti viską? Visos pamokos bus ištrintos.', [['Taip, pamiršk', 'trinti viską tikrai'], ['Ne', 'gerai']]); return; }
-    if (/trinti viską tikrai/.test(t)) { agentStore({ lessons: [], stats: {} }); say('Pamiršau viską. Vėl esu 🍼 kūdikis.'); return; }
-    let m = t.match(/(pamiršk|pamirsk)\s+([a-zšž]{1,2})\s*-?\s*(\d{1,3})/);
-    if (m) { const key = (m[2] + m[3]).toUpperCase(); const st = agentStore(); let n = 0; st.lessons.forEach(L => { if (L.rules && L.rules.marks && L.rules.marks[key]) { delete L.rules.marks[key]; n++; } }); agentStore(st); say(n ? 'Pamiršau ' + key + '.' : key + ' nežinojau.'); return; }
-    if (/\b(taikyk|pritaikyk)\b/.test(t)) { agentApplyNow(); return; }
-    // --- mokymas sakiniais ---
-    const R0 = {}, said = [];
-    const reMark = /\b([ld]{1,2})\s*-?\s*(\d{1,3}[a-z]?)\s*(?:aukštis|aukštį|aukstis|h|=|:)?\s*(\d+[.,]?\d*)/g; let mm;
-    while ((mm = reMark.exec(t))) { const key = (mm[1] + mm[2]).toUpperCase(), h = num(mm[3]); if (h > 0.2 && h < 5) { R0.marks = R0.marks || {}; R0.marks[key] = { h, kind: /^D/.test(key) ? 'D' : 'L' }; said.push(key + ' aukštis ' + fmt(h)); } }
-    if ((m = t.match(/\bdur[a-ząčęėįšųūž]*\s*(?:aukštis|aukstis|h)?\s*(\d+[.,]?\d*)/)) && !/\bd\s*-?\s*\d/.test(t)) { const h = num(m[1]); if (h > 1 && h < 4) { R0.doorH = h; said.push('durys be žymės ' + fmt(h)); } }
-    if ((m = t.match(/\b(?:visos\s+)?angos?\s*(?:aukštis|aukstis|h)?\s*(\d+[.,]?\d*)/)) && !/\b[ld]\s*-?\s*\d/.test(t)) { const h = num(m[1]); if (h > 0.5 && h < 4) { R0.winH = h; R0.doorH = h; said.push('visos angos be žymės ' + fmt(h)); } }
-    if ((m = t.match(/\blang[a-ząčęėįšųūž]*\s*(?:aukštis|aukstis|h)?\s*(\d+[.,]?\d*)/)) && !/\bl\s*-?\s*\d/.test(t)) { const h = num(m[1]); if (h > 0.2 && h < 4) { R0.winH = h; said.push('langai be žymės ' + fmt(h)); } }
-    const G = { outer: {}, inner: {} };
-    const sien = /\bsien[a-ząčęėįšųūž]*/.test(t) && !/pertvar/.test(t), pert = /pertvar|vidin/.test(t);
-    if ((sien || pert) && (m = t.replace(/žied[a-ząčęėįšųūž]*\s*(?:aukštis|aukstis|h)?\s*0[.,]\d+/g, ' ').match(/(?:^|[^\d.,])(\d+[.,]?\d*)(?![\d])/)) && num(m[1]) >= 1.5 && num(m[1]) <= 12 && !/trumpesn|ilgesn/.test(t)) { const h = num(m[1]); if (h > 1 && h < 20) { (pert ? G.inner : G.outer).hMode = 'one'; (pert ? G.inner : G.outer).h = h; said.push((pert ? 'pertvarų' : 'sienų') + ' aukštis ' + fmt(h)); if (!pert) R0.h = h; } }
-    if (/be žiedo|be ziedo/.test(t) && (sien || pert)) { (pert ? G.inner : G.outer).btype = 'noring'; said.push((pert ? 'pertvaros' : 'sienos') + ' be žiedo'); }
-    else if (/su žiedu|su ziedu/.test(t) && (sien || pert)) { (pert ? G.inner : G.outer).btype = 'ring'; said.push((pert ? 'pertvaros' : 'sienos') + ' su žiedu'); }
-    if ((m = t.match(/žied[a-ząčęėįšųūž]*\s*(?:aukštis|aukstis|h)?\s*(\d+[.,]?\d*)/))) { const h = num(m[1]); if (h > 0.05 && h < 1.5) { R0.ringH = h; said.push('žiedo aukštis ' + fmt(h)); } }
-    if (/sąram|saram/.test(t)) { const L = Object.assign({ lt: 'M', ll: 0.25, lr: 0.25, lh: 0.22 }, agentKnow().lint || {});
-        if (/liejam/.test(t)) L.lt = 'L'; else if (/montuoj/.test(t)) L.lt = 'M'; else if (/nėra|nera|be sąramų|be saramu/.test(t)) L.lt = '';
-        if ((m = t.match(/užlaid[a-ząčęėįšųūž]*\s*(\d+[.,]?\d*)/))) { L.ll = L.lr = num(m[1]); } if ((m = t.match(/(?:aukštis|aukstis|h)\s*(\d+[.,]?\d*)/))) L.lh = num(m[1]);
-        R0.lint = L; said.push('sąramos: ' + (L.lt === 'L' ? 'liejamos' : (L.lt === 'M' ? 'montuojamos' : 'nėra')) + (L.lt ? ', užlaida ' + fmt(L.ll) + ', aukštis ' + fmt(L.lh) : '')); }
-    if ((m = t.match(/blokel[a-ząčęėįšųūž]*\s*(\d+[.,]?\d*)/))) { const b = num(m[1]); if (b > 0.04 && b < 1) { R0.blockH = b; said.push('blokelis ' + Math.round(b * 1000) + ' mm'); } }
-    if ((m = t.match(/(neimk|nedėk|nedek|praleisk)\s+pertvar[a-ząčęėįšųūž]*\s+(trumpesn[a-ząčęėįšųūž]*\s+(?:nei|už|uz)\s*)?(\d+[.,]?\d*)/))) { R0.minIn = num(m[3]); said.push('pertvaros trumpesnės nei ' + fmt(R0.minIn) + ' m – nededu'); }
-    if (Object.keys(G.outer).length || Object.keys(G.inner).length) { R0.gen = {}; if (Object.keys(G.outer).length) R0.gen.outer = G.outer; if (Object.keys(G.inner).length) { const tk = '12'; R0.gen.inner = {}; [8, 10, 11, 12, 15, 20, 25].forEach(x => R0.gen.inner[String(x)] = G.inner); } }
-    if (said.length) { agentTeach(R0, said.join('; ')); AG.lastTeach = R0; askApply(said.join('; ')); return; }
-    say('Nesupratau 🤔. Parašykite „pagalba“ – parodysiu, kokius sakinius suprantu. Pvz.: „L-1 aukštis 1,5“, „sienos su žiedu“, „daryk“.');
-}
 async function agentApplyNow() { // pritaiko, ką moka, dabartiniam projektui
     if (!R || !R.n) { agentMsg('ag', 'Projekte dar nėra sienų – parašykite „daryk“.'); return; }
     const K = agentKnow(); let n = 0; snapshot();
@@ -4370,6 +4344,495 @@ async function agentApplyNow() { // pritaiko, ką moka, dabartiniam projektui
         else if (!key) { const h = o.kind === 'D' ? K.doorH : K.winH; if (h && o.h !== h) { o.h = h; n++; } }
         if (K.lint && !(key && q && q.lt != null)) ['lt', 'll', 'lr', 'lh'].forEach(k => { if (K.lint[k] != null && o[k] !== K.lint[k]) { o[k] = K.lint[k]; n++; } }); });
     changed(true); agentMsg('ag', n ? '✔ Pritaikiau (' + n + ' pakeitimų). Jei ne taip – ↶ atšaukia.' : 'Viskas jau taip, kaip moku – nieko keisti nereikėjo.');
+}
+/* ===== 👁 Agento regėjimas: sienos randamos iš brėžinio VAIZDO – nepriklausomai nuo spalvų ir braižymo stiliaus
+   (nuspalvintas, užbrūkšniuotas ar tik linijomis apvestas mūras, nuskenuotas brėžinys).
+   Mūras – tai „storos“ juostos (8–70 cm): plonos linijos (matmenys, baldai, tekstas) ir dideli plotai (grindų užpildai) atmetami.
+   Brūkšniuotė ir tarpas tarp dviejų sienos linijų užpildomi – lieka vientisa siena. Iš sienų tinklo – pastato kontūras. ===== */
+function agvGrid() { // brėžinys rastru: pikselis g pdf taškų (≈2,5 cm), D – tamsumas 0–255
+    if (!PDFU || !PDFU.cv) return null; const c = pdfCal(); if (!c || !(c.mpp > 0)) return null;
+    const key = PDFU.name + '#' + PDFU.page + '#' + c.mpp.toFixed(8);
+    if (PDFU.agv && PDFU.agv.key === key) return PDFU.agv;
+    let g = Math.min(0.025 / c.mpp, 0.7), gm = g * c.mpp, W = Math.ceil(PDFU.W / g), H = Math.ceil(PDFU.H / g); // ≤ 2,5 cm ir ≤ 0,7 pt – kad plonos linijos neištrūkinėtų
+    const cap = 7e6; if (W * H > cap) { const k = Math.sqrt(W * H / cap); g *= k; gm *= k; W = Math.ceil(PDFU.W / g); H = Math.ceil(PDFU.H / g); }
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const x = cv.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+    x.drawImage(PDFU.cv, 0, 0, PDFU.cv.width, PDFU.cv.height, 0, 0, PDFU.W / g, PDFU.H / g);
+    const id = x.getImageData(0, 0, W, H).data, D = new Uint8Array(W * H);
+    for (let i = 0, j = 0; i < D.length; i++, j += 4) D[i] = 255 - Math.round(0.299 * id[j] + 0.587 * id[j + 1] + 0.114 * id[j + 2]);
+    PDFU.agv = { key, W, H, g, gm, D }; return PDFU.agv;
+}
+function agvBox(A, W, H, r, mode) { // kvadratinis išplėtimas (mode 1) arba suspaudimas (mode 0), langas (2r+1)², per sumas – O(N)
+    if (r < 1) return A.slice(); const T = new Uint8Array(W * H), O = new Uint8Array(W * H), n = 2 * r + 1, S = new Int32Array(Math.max(W, H) + 1);
+    for (let y = 0; y < H; y++) { const o = y * W; S[0] = 0; for (let x = 0; x < W; x++) S[x + 1] = S[x] + A[o + x];
+        for (let x = 0; x < W; x++) { const a = Math.max(0, x - r), b = Math.min(W, x + r + 1), s = S[b] - S[a]; T[o + x] = mode ? (s > 0 ? 1 : 0) : (s === n ? 1 : 0); } }
+    for (let x = 0; x < W; x++) { S[0] = 0; for (let y = 0; y < H; y++) S[y + 1] = S[y] + T[y * W + x];
+        for (let y = 0; y < H; y++) { const a = Math.max(0, y - r), b = Math.min(H, y + r + 1), s = S[b] - S[a]; O[y * W + x] = mode ? (s > 0 ? 1 : 0) : (s === n ? 1 : 0); } }
+    return O;
+}
+const agvOpen = (A, W, H, r) => agvBox(agvBox(A, W, H, r, 0), W, H, r, 1);
+const agvClose = (A, W, H, r) => agvBox(agvBox(A, W, H, r, 1), W, H, r, 0);
+function agvDT(A, W, H) { // atstumas (pikseliais, ×3 – chamfer 3-4) iki artimiausio 0 arba krašto
+    const D = new Uint16Array(W * H), BIG = 60000;
+    for (let i = 0; i < D.length; i++) D[i] = A[i] ? BIG : 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (!D[i]) continue; let v = D[i];
+        if (x === 0 || y === 0 || x === W - 1 || y === H - 1) v = Math.min(v, 3);
+        if (x > 0) v = Math.min(v, D[i - 1] + 3); if (y > 0) { v = Math.min(v, D[i - W] + 3); if (x > 0) v = Math.min(v, D[i - W - 1] + 4); if (x < W - 1) v = Math.min(v, D[i - W + 1] + 4); } D[i] = v; }
+    for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const i = y * W + x; if (!D[i]) continue; let v = D[i];
+        if (x < W - 1) v = Math.min(v, D[i + 1] + 3); if (y < H - 1) { v = Math.min(v, D[i + W] + 3); if (x < W - 1) v = Math.min(v, D[i + W + 1] + 4); if (x > 0) v = Math.min(v, D[i + W - 1] + 4); } D[i] = v; }
+    return D;
+}
+function agvLabel(A, W, H, conn8) { // sujungtos sritys: L – numeriai (0 – fonas), st – plotas ir ribos
+    const L = new Int32Array(W * H), st = [null], Q = new Int32Array(W * H); let n = 0;
+    for (let s = 0; s < A.length; s++) { if (!A[s] || L[s]) continue; n++; let qh = 0, qt = 0; Q[qt++] = s; L[s] = n; const o = { id: n, area: 0, x0: W, y0: H, x1: 0, y1: 0, edge: false };
+        while (qh < qt) { const i = Q[qh++], x = i % W, y = (i - x) / W; o.area++; if (x < o.x0) o.x0 = x; if (x > o.x1) o.x1 = x; if (y < o.y0) o.y0 = y; if (y > o.y1) o.y1 = y; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) o.edge = true;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; if (!conn8 && dx && dy) continue; const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (A[j] && !L[j]) { L[j] = n; Q[qt++] = j; } } }
+        st.push(o); }
+    return { L, st, n };
+}
+function agvFillHoles(A, W, H) { // užpildo uždaras ertmes (kas nepasiekiama iš krašto)
+    const out = new Uint8Array(W * H).fill(1), Q = new Int32Array(W * H); let qh = 0, qt = 0;
+    const push = i => { if (!A[i] && out[i]) { out[i] = 0; Q[qt++] = i; } };
+    for (let x = 0; x < W; x++) { push(x); push((H - 1) * W + x); } for (let y = 0; y < H; y++) { push(y * W); push(y * W + W - 1); }
+    while (qh < qt) { const i = Q[qh++], x = i % W; if (x > 0) push(i - 1); if (x < W - 1) push(i + 1); if (i >= W) push(i - W); if (i < W * (H - 1)) push(i + W); }
+    return out;
+}
+function agvSolid(ink, G) { // siauri balti plotai tarp linijų (brūkšniuotė, sienos be užpildo) užpildomi (ne matmenų juostos – jose skaičiai), plonos linijos pašalinamos
+    const { W, H, gm } = G, N = W * H;
+    const wh = new Uint8Array(N); for (let i = 0; i < N; i++) wh[i] = 1 - ink[i];
+    const DTw = agvDT(wh, W, H), LW = agvLabel(wh, W, H, false), mx = new Uint16Array(LW.n + 1);
+    for (let i = 0; i < N; i++) { const l = LW.L[i]; if (l && DTw[i] > mx[l]) mx[l] = DTw[i]; }
+    const longC = l => { const o = LW.st[l], r = Math.max(1, mx[l] / 3); return o.area <= 6 || o.area / (r * r) >= 7; }; // juosta, ne langelis (plytelės, raidės)
+    const dimC = new Uint8Array(LW.n + 1);
+    (PDFU.texts || []).forEach(t => { const s = t.s.replace(/[\s.]/g, ''); if (!/^\d{2,5}$/.test(s)) return; const X = Math.round(t.x / G.g), Y = Math.round(t.y / G.g), r = 3;
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const x = X + dx, y = Y + dy; if (x >= 0 && y >= 0 && x < W && y < H) { const l = LW.L[y * W + x]; if (l) dimC[l] = 1; } } });
+    const thinMax = 0.34 / gm * 3, S = ink.slice();
+    for (let i = 0; i < N; i++) { const l = LW.L[i]; if (l && !LW.st[l].edge && !dimC[l] && mx[l] <= thinMax && longC(l)) S[i] = 1; }
+    return agvOpen(S, W, H, Math.max(1, Math.round(0.03 / gm)));
+}
+function agvWalls(near) { // sienų kaukė ir pastato plotas (cache)
+    const G = agvGrid(); if (!G) return null; const nk = near ? near.map(v => Math.round(v)).join(',') : '';
+    if (G.walls && G.walls.nk === nk) return G.walls;
+    const { W, H, gm } = G, N = W * H, D = G.D, px = m => Math.max(1, Math.round(m / gm));
+    // 1) rašalas → vientisas mūras (agvSolid); 2) dideli plotai (> ~75 cm į abi puses, pvz. grindų užpildas) – pašalinamas tik to paties tono rašalas, sienos prie jo lieka
+    const ink = new Uint8Array(N); for (let i = 0; i < N; i++) ink[i] = D[i] >= 18 ? 1 : 0;
+    let S1 = agvSolid(ink, G), T = agvOpen(S1, W, H, px(0.37));
+    { const LT = agvLabel(T, W, H, false), sum = new Float64Array(LT.n + 1), ni = new Float64Array(LT.n + 1), cnt = new Float64Array(LT.n + 1); let any = false;
+      for (let i = 0; i < N; i++) { const l = LT.L[i]; if (l) { if (ink[i]) { sum[l] += D[i]; ni[l]++; } cnt[l]++; } }
+      for (let i = 0; i < N; i++) { const l = LT.L[i]; if (!l || !ink[i] || ni[l] < cnt[l] * 0.4) continue; const tone = sum[l] / ni[l]; if (Math.abs(D[i] - tone) > 20) continue;
+        const x = i % W, dk = tone + 45; if ((x > 0 && D[i - 1] > dk) || (x < W - 1 && D[i + 1] > dk) || (i >= W && D[i - W] > dk) || (i < N - W && D[i + W] > dk)) continue; // linijos pakraštys lieka
+        ink[i] = 0; any = true; }
+      if (any) { S1 = agvSolid(ink, G); T = agvOpen(S1, W, H, px(0.37)); } // užpildas ir po sienomis: sienos linijos lieka, tarpas tarp jų vėl užpildomas
+      for (let i = 0; i < N; i++) if (T[i]) S1[i] = 0; }
+    S1 = agvClose(agvOpen(S1, W, H, 1), W, H, 1);
+    // 5) pastato sienų tinklas: didžiausia sritis (arba prie bakstelėto taško) + sritys jos ribose
+    const LS = agvLabel(S1, W, H, true), C = LS.st.slice(1).filter(o => o && !(o.x1 - o.x0 > W * 0.85 || o.y1 - o.y0 > H * 0.85) && Math.hypot(o.x1 - o.x0, o.y1 - o.y0) * gm >= 1.0);
+    if (!C.length) return (G.walls = { nk, none: true });
+    let main = C.reduce((m, o) => o.area > m.area ? o : m);
+    if (near) { const X = near[0] / G.g, Y = near[1] / G.g; const inb = C.filter(o => X >= o.x0 - px(1) && X <= o.x1 + px(1) && Y >= o.y0 - px(1) && Y <= o.y1 + px(1)); if (inb.length) main = inb.reduce((m, o) => o.area > m.area ? o : m); }
+    const keep = new Set([main.id]); let bb = { x0: main.x0, y0: main.y0, x1: main.x1, y1: main.y1 }; const ok = new Set(C.map(o => o.id));
+    const addC = o => { keep.add(o.id); bb = { x0: Math.min(bb.x0, o.x0), y0: Math.min(bb.y0, o.y0), x1: Math.max(bb.x1, o.x1), y1: Math.max(bb.y1, o.y1) }; };
+    for (let it = 0; it < 6; it++) { // sienų gabalai, atskirti durimis / langais (iki ~2,4 m), ir sritys pastato ribose
+        const cm = new Uint8Array(N); for (let i = 0; i < N; i++) if (keep.has(LS.L[i])) cm[i] = 1; const dl = agvBox(cm, W, H, px(1.2), 1), touch = new Set();
+        for (let i = 0; i < N; i++) { const l = LS.L[i]; if (l && dl[i] && !keep.has(l) && ok.has(l)) touch.add(l); }
+        let add = false; touch.forEach(l => { const o = LS.st[l]; if (o.area * gm * gm >= 0.02) { addC(o); add = true; } });
+        const e = px(0.3); C.forEach(o => { if (keep.has(o.id)) return; const cx = (o.x0 + o.x1) / 2, cy = (o.y0 + o.y1) / 2; if (cx >= bb.x0 - e && cx <= bb.x1 + e && cy >= bb.y0 - e && cy <= bb.y1 + e && o.area * gm * gm >= 0.03) { addC(o); add = true; } });
+        if (!add) break; }
+    // 6) apkarpoma aplink pastatą; uždaromi tarpai (durys, langai) – mažiausias tarpas, kuriam esant plotas nebeauga
+    const m = px(2.4), ox = Math.max(0, bb.x0 - m), oy = Math.max(0, bb.y0 - m), w = Math.min(W, bb.x1 + m + 1) - ox, h = Math.min(H, bb.y1 + m + 1) - oy;
+    const Wm = new Uint8Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y + oy) * W + x + ox; if (keep.has(LS.L[i])) Wm[y * w + x] = 1; }
+    // pasuktas pastatas – vaizdas pasukamas, kad sienos būtų lygiagrečios kraštams (kitaip kampuose lieka nuopjovos)
+    const th = agvAngle(Wm, w, h), Rr = Math.abs(th) > 0.008 ? agvRotate(Wm, w, h, th) : null, A0 = Rr ? Rr.B : Wm, sw = Rr ? Rr.w : w, sh = Rr ? Rr.h : h;
+    const tries = [0.25, 0.5, 0.8, 1.2, 1.6, 2.0].map(r => { const F = agvFillHoles(agvClose(A0, sw, sh, px(r)), sw, sh); let a = 0; for (let i = 0; i < F.length; i++) a += F[i]; return { r, F, a }; });
+    const amax = tries[tries.length - 1].a, pick = tries.find(q => q.a >= amax * 0.97) || tries[tries.length - 1];
+    // didžiausia uždara sritis
+    const LF = agvLabel(pick.F, sw, sh, false); let big = null; LF.st.forEach(o => { if (o && (!big || o.area > big.area)) big = o; });
+    const Fs = new Uint8Array(sw * sh); if (big) for (let i = 0; i < Fs.length; i++) if (LF.L[i] === big.id) Fs[i] = 1;
+    const F = Rr ? agvUnrotate(Fs, Rr, w, h) : Fs;
+    return (G.walls = { nk, Wm, F, Fs, sw, sh, Rr, w, h, ox, oy, gap: pick.r, G });
+}
+function agvAngle(A, w, h) { // vyraujanti sienų kryptis (mod 90°), radianais (−π/8…π/8) – pagal kraštų gradientus
+    let sc = 0, ss = 0;
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x, v = A[i]; if (v === A[i - 1] && v === A[i + 1] && v === A[i - w] && v === A[i + w]) continue;
+        const gx = (A[i - w + 1] + 2 * A[i + 1] + A[i + w + 1]) - (A[i - w - 1] + 2 * A[i - 1] + A[i + w - 1]), gy = (A[i + w - 1] + 2 * A[i + w] + A[i + w + 1]) - (A[i - w - 1] + 2 * A[i - w] + A[i - w + 1]), m = Math.hypot(gx, gy); if (!m) continue;
+        const f = Math.atan2(gy, gx) * 4; sc += m * Math.cos(f); ss += m * Math.sin(f); }
+    return Math.atan2(ss, sc) / 4;
+}
+function agvRotate(A, w, h, th) { // vaizdas pasukamas −th (sienos tampa lygiagrečios kraštams)
+    const cs = Math.cos(th), sn = Math.sin(th), w2 = Math.ceil(Math.abs(w * cs) + Math.abs(h * sn)) + 4, h2 = Math.ceil(Math.abs(w * sn) + Math.abs(h * cs)) + 4, B = new Uint8Array(w2 * h2);
+    const cx = w / 2, cy = h / 2, cx2 = w2 / 2, cy2 = h2 / 2;
+    for (let Y = 0; Y < h2; Y++) for (let X = 0; X < w2; X++) { const dx = X + 0.5 - cx2, dy = Y + 0.5 - cy2, x = Math.floor(cx + cs * dx - sn * dy), y = Math.floor(cy + sn * dx + cs * dy); if (x >= 0 && y >= 0 && x < w && y < h) B[Y * w2 + X] = A[y * w + x]; }
+    return { B, w: w2, h: h2, cs, sn, cx, cy, cx2, cy2, toSrc: p => [cx + cs * (p[0] - cx2) - sn * (p[1] - cy2), cy + sn * (p[0] - cx2) + cs * (p[1] - cy2)] };
+}
+function agvUnrotate(B, Rr, w, h) { const A = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dx = x + 0.5 - Rr.cx, dy = y + 0.5 - Rr.cy, X = Math.floor(Rr.cx2 + Rr.cs * dx + Rr.sn * dy), Y = Math.floor(Rr.cy2 - Rr.sn * dx + Rr.cs * dy); if (X >= 0 && Y >= 0 && X < Rr.w && Y < Rr.h) A[y * w + x] = B[Y * Rr.w + X]; }
+    return A;
+}
+function agvTrace(F, w, h) { // kontūro sekimas pikselių kraštais (sritis dešinėje), grąžina kampų taškus
+    const inside = (x, y) => x >= 0 && y >= 0 && x < w && y < h && F[y * w + x] === 1;
+    let s = -1; for (let i = 0; i < F.length; i++) if (F[i]) { s = i; break; } if (s < 0) return null;
+    const x0 = s % w, y0 = (s - x0) / w, DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
+    const fl = (x, y, d) => d === 0 ? [x, y - 1] : d === 1 ? [x, y] : d === 2 ? [x - 1, y] : [x - 1, y - 1];
+    const fr = (x, y, d) => d === 0 ? [x, y] : d === 1 ? [x - 1, y] : d === 2 ? [x - 1, y - 1] : [x, y - 1];
+    let x = x0, y = y0, d = 0; const pts = [[x, y]];
+    for (let k = 0; k < 4 * (w + h) * 40; k++) { const a = fl(x, y, d), b = fr(x, y, d);
+        if (inside(a[0], a[1])) { d = (d + 3) % 4; continue; } if (!inside(b[0], b[1])) { d = (d + 1) % 4; continue; }
+        x += DX[d]; y += DY[d]; pts.push([x, y]); if (x === x0 && y === y0) break; }
+    pts.pop(); return pts;
+}
+function agvDP(P, tol) { // Douglas–Peucker uždaram daugiakampiui: grąžina indeksus
+    const n = P.length; if (n < 4) return P.map((_, i) => i);
+    let far = 0, fd = -1; P.forEach((p, i) => { const d = Math.hypot(p[0] - P[0][0], p[1] - P[0][1]); if (d > fd) { fd = d; far = i; } });
+    const keep = new Uint8Array(n); keep[0] = keep[far] = 1;
+    const rec = (a, b) => { const A = P[a], B = P[b % n]; let md = -1, mi = -1; const dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy) || 1;
+        for (let i = a + 1; i < b; i++) { const p = P[i % n], dd = Math.abs((p[0] - A[0]) * dy - (p[1] - A[1]) * dx) / L; if (dd > md) { md = dd; mi = i; } }
+        if (md > tol) { keep[mi % n] = 1; rec(a, mi); rec(mi, b); } };
+    rec(0, far); rec(far, n); const out = []; for (let i = 0; i < n; i++) if (keep[i]) out.push(i); return out;
+}
+function agvPolygon(WS) { // pastato išorės daugiakampis pdf taškais: kryptys sulyginamos, kraštai – pagal brėžinio linijas
+    const { w, h, ox, oy, G } = WS, gm = G.gm; let P = agvTrace(WS.Fs || WS.F, WS.sw || w, WS.sh || h); if (!P || P.length < 8) return null;
+    if (WS.Rr) P = P.map(WS.Rr.toSrc); // atgal į brėžinio kryptį
+    const I = agvDP(P, 1.3); if (I.length < 3) return null;
+    // vyraujanti kryptis (mod 90°)
+    const hist = new Float64Array(90); for (let k = 0; k < I.length; k++) { const a = P[I[k]], b = P[I[(k + 1) % I.length]], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 2) continue;
+        let an = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI % 90 + 90) % 90; for (let q = -2; q <= 2; q++) hist[(Math.round(an) + q + 90) % 90] += L * (3 - Math.abs(q)); }
+    let th0 = 0; for (let i = 1; i < 90; i++) if (hist[i] > hist[th0]) th0 = i; PDFU.agvTh = th0;
+    // kraštai: kryptis (sulyginta, jei arti ašių) ir poslinkis (vidurkis visų kontūro taškų tarp kampų)
+    let E = []; for (let k = 0; k < I.length; k++) { const i0 = I[k], i1 = I[(k + 1) % I.length], a = P[i0], b = P[i1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1e-9) continue;
+        let an = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI; const rel = ((an - th0) % 90 + 135) % 90 - 45, sn = Math.abs(rel) < 12; if (sn) an -= rel;
+        E.push({ an, i0, i1, L, sn }); }
+    const merge = () => { let ch = true; while (ch && E.length > 3) { ch = false; for (let k = 0; k < E.length; k++) { const j = (k + 1) % E.length, a = E[k], b = E[j];
+        if (Math.abs(Geo.norm180(a.an - b.an)) < 1.5) { a.i1 = b.i1; a.L += b.L; a.sn = a.sn || b.sn; E.splice(j, 1); ch = true; break; } } } };
+    merge();
+    const fit = e => { const r = e.an * Math.PI / 180, d = [Math.cos(r), Math.sin(r)], n = [-d[1], d[0]], vals = []; let i = e.i0; for (let q = 0; q < P.length; q++) { vals.push(P[i][0] * n[0] + P[i][1] * n[1]); if (i === e.i1) break; i = (i + 1) % P.length; }
+        vals.sort((x, y) => x - y); e.d = d; e.n = n; e.o = vals[Math.floor(vals.length / 2)]; };
+    E.forEach(fit);
+    const cross = (a, b) => { const den = a.n[0] * b.n[1] - a.n[1] * b.n[0]; if (Math.abs(den) < 1e-6) return null; return [(a.o * b.n[1] - b.o * a.n[1]) / den, (a.n[0] * b.o - b.n[0] * a.o) / den]; };
+    const verts = () => E.map((e, k) => cross(E[(k + E.length - 1) % E.length], e));
+    // trumpi kraštai (laiptukai) pašalinami
+    for (let it = 0; it < 200 && E.length > 3; it++) { const V = verts(); if (V.some(v => !v)) { let k = V.findIndex(v => !v); E.splice(k, 1); merge(); continue; }
+        let best = -1, bl = 0.12 / gm; E.forEach((e, k) => { const a = V[k], b = V[(k + 1) % E.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < bl) { bl = L; best = k; } });
+        if (best < 0) E.forEach((e, k) => { if (best >= 0) return; const a = V[k], b = V[(k + 1) % E.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]) * gm, pe = E[(k + E.length - 1) % E.length], ne = E[(k + 1) % E.length], da = Math.abs(Geo.norm180(pe.an - ne.an));
+            if (L < 0.25 && da < 1.5 && Math.abs(pe.o - ne.o) * gm < 0.08) best = k; // laiptukas tarp beveik vienos tiesės kraštų
+            else if (L < 0.45 && !e.sn && pe.sn && ne.sn && Math.abs(da - 90) < 2) best = k; }); // nuopjova kampe
+        if (best < 0) break;
+        const pe = E[(best + E.length - 1) % E.length], ne = E[(best + 1) % E.length];
+        const da = Math.abs(Geo.norm180(pe.an - ne.an)), bi = E.indexOf(ne);
+        if (da < 1.5) { // abu kaimynai lygiagretūs – sujungiami į vieną (laiptukas)
+            const lp = pe.L, ln = ne.L; pe.o = (pe.o * lp + ne.o * ln) / (lp + ln); pe.L += ln + E[best].L; pe.i1 = ne.i1; E.splice(Math.max(best, bi), 1); E.splice(Math.min(best, bi), 1); }
+        else if (da > 178.5) { E.splice(Math.max(best, bi), 1); E.splice(Math.min(best, bi), 1); } // smaigalys
+        else E.splice(best, 1); }
+    if (E.length < 3) return null;
+    // į pdf taškus (pikselio kraštas = lygus pdf koordinatėms × g)
+    const g = G.g; E.forEach(e => { e.o = (e.o + ox * e.n[0] + oy * e.n[1]) * g; });
+    // poslinkis prilyginamas brėžinio linijai (iki 7 cm), jei ji lygiagreti ir ilga
+    const Sg = PDFU.segs || [], tol = 0.07 / pdfCal().mpp, Vp = verts().map(v => [v[0], v[1]]);
+    E.forEach((e, k) => { const a = Vp[k], b = Vp[(k + 1) % E.length]; if (!a || !b) return; const L = Math.hypot(b[0] - a[0], b[1] - a[1]); let best = null;
+        for (let i = 0; i < Sg.length; i += 4) { const dx = Sg[i + 2] - Sg[i], dy = Sg[i + 3] - Sg[i + 1], sl = Math.hypot(dx, dy); if (sl < Math.min(L * 0.3, 1 / pdfCal().mpp)) continue;
+            if (Math.abs(dx / sl * e.n[0] + dy / sl * e.n[1]) > 0.012) continue; const o1 = Sg[i] * e.n[0] + Sg[i + 1] * e.n[1], o2 = Sg[i + 2] * e.n[0] + Sg[i + 3] * e.n[1], o = (o1 + o2) / 2; if (Math.abs(o - e.o) > tol) continue;
+            const u = p => (p[0] - a[0]) * e.d[0] + (p[1] - a[1]) * e.d[1], ua = Math.min(u([Sg[i], Sg[i + 1]]), u([Sg[i + 2], Sg[i + 3]])), ub = Math.max(u([Sg[i], Sg[i + 1]]), u([Sg[i + 2], Sg[i + 3]])), ov = Math.min(L, ub) - Math.max(0, ua);
+            if (ov < Math.min(L * 0.3, 1 / pdfCal().mpp)) continue; if (!best || Math.abs(o - e.o) < Math.abs(best - e.o)) best = o; }
+        if (best != null) e.o2 = best; });
+    E.forEach(e => { if (e.o2 != null) { e.o = e.o2; return; } if (Sg.length) return; const k = E.indexOf(e), a = Vp[k], b = Vp[(k + 1) % E.length]; if (!a || !b) return; // skenas
+        const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], q = 2.5 * g, inF = (X, Y) => { const x = Math.floor(X / g) - ox, y = Math.floor(Y / g) - oy; return x >= 0 && y >= 0 && x < w && y < h && WS.F[y * w + x] === 1; };
+        const sgn = inF(m[0] + e.n[0] * q, m[1] + e.n[1] * q) ? 1 : (inF(m[0] - e.n[0] * q, m[1] - e.n[1] * q) ? -1 : 0); e.o += sgn * 0.7 * g; });
+    let pts = verts(); if (pts.some(v => !v)) return null;
+    pts = agvNotches(pts, WS);
+    return { pts, E };
+}
+function agvContour(nearW) { // nearW – pasaulio taškas (bakstelėtas kampas) arba null
+    try { const near = nearW && PDFU && PDFU.cv ? W2P(nearW) : null, WS = agvWalls(near); if (!WS || WS.none) return null;
+        const Pg = agvPolygon(WS); if (!Pg) return null; let pts = Pg.pts;
+        if (near) { let bi = 0, bd = Infinity; pts.forEach((p, i) => { const d = Math.hypot(p[0] - near[0], p[1] - near[1]); if (d < bd) { bd = d; bi = i; } }); pts = pts.slice(bi).concat(pts.slice(0, bi)); }
+        else { let bi = 0; pts.forEach((p, i) => { if (p[0] + p[1] < pts[bi][0] + pts[bi][1]) bi = i; }); pts = pts.slice(bi).concat(pts.slice(0, bi)); }
+        return pts; } catch (e) { return null; }
+}
+function agvThick(Ppdf) { // kiekvienam kontūro kraštui – mūro storis iš kaukės (kai brėžinyje nėra lygiagrečios linijos)
+    const WS = PDFU && PDFU.agv && PDFU.agv.walls; if (!WS || WS.none) return [];
+    const { Wm, w, h, ox, oy, G } = WS, g = G.g, gm = G.gm, n = Ppdf.length - 1; let A2 = 0;
+    for (let i = 0; i < n; i++) A2 += Ppdf[i][0] * Ppdf[i + 1][1] - Ppdf[i + 1][0] * Ppdf[i][1];
+    const sg = A2 > 0 ? 1 : -1, at = (X, Y) => { const x = Math.floor(X / g) - ox, y = Math.floor(Y / g) - oy; return x >= 0 && y >= 0 && x < w && y < h ? Wm[y * w + x] : 0; }, out = [];
+    for (let i = 0; i < n; i++) { const a = Ppdf[i], b = Ppdf[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L * gm / g < 0.3) { out.push(0); continue; }
+        const d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], nin = [-d[1] * sg, d[0] * sg], ts = [];
+        for (let k = 1; k < 12; k++) { const u = L * k / 12, p = [a[0] + d[0] * u, a[1] + d[1] * u]; let s = 0.5 * g; while (s < 3 * g && !at(p[0] + nin[0] * s, p[1] + nin[1] * s)) s += 0.5 * g; if (s >= 3 * g) continue;
+            while (s < 1.0 / gm * g && at(p[0] + nin[0] * s, p[1] + nin[1] * s)) s += 0.5 * g; ts.push((s - 1.25 * g) * gm / g); }
+        if (ts.length < 3) { out.push(0); continue; } ts.sort((x, y) => x - y); const t = ts[Math.floor(ts.length / 2)]; out.push(t >= 0.08 && t <= 0.8 ? Math.round(t * 100) / 100 : 0); }
+    return out;
+}
+function agvInnerCands() { // pertvarų vietos: sienų kaukė pastato viduje (be išorės sienų juostos)
+    const WS = PDFU && PDFU.agv && PDFU.agv.walls; if (!WS || WS.none || !R || !R.closed) return [];
+    const { Wm, F, w, h, ox, oy, G } = WS, g = G.g, gm = G.gm, c = pdfCal();
+    const tmax = Math.max(0.1, ...project.walls.map(x => Number(x.t) || 0)), DF = agvDT(F, w, h), lim = (tmax + 0.07) / gm * 3;
+    let I = new Uint8Array(w * h); for (let i = 0; i < I.length; i++) I[i] = Wm[i] && DF[i] > lim ? 1 : 0; I = agvOpen(I, w, h, 1);
+    const DI = agvDT(I, w, h), cell = Math.max(4, Math.round(0.4 / gm)), out = [];
+    const th = (PDFU.agvTh || 0) * Math.PI / 180, ax = [[Math.cos(th), Math.sin(th)], [-Math.sin(th), Math.cos(th)]];
+    const inI = (x, y) => { const X = Math.round(x), Y = Math.round(y); return X >= 0 && Y >= 0 && X < w && Y < h && I[Y * w + X] === 1; };
+    const run = (x, y, d) => { let a = 0, b = 0; while (a < 2000 && inI(x - d[0] * (a + 1), y - d[1] * (a + 1))) a++; while (b < 2000 && inI(x + d[0] * (b + 1), y + d[1] * (b + 1))) b++; return [a, b]; };
+    for (let cy = 0; cy < h; cy += cell) for (let cx = 0; cx < w; cx += cell) { let bi = -1, bv = 2;
+        for (let y = cy; y < Math.min(h, cy + cell); y++) for (let x = cx; x < Math.min(w, cx + cell); x++) { const v = DI[y * w + x]; if (v > bv) { bv = v; bi = y * w + x; } }
+        if (bi < 0) continue; const x = bi % w, y = (bi - x) / w, r0 = run(x, y, ax[0]), r1 = run(x, y, ax[1]), l0 = r0[0] + r0[1] + 1, l1 = r1[0] + r1[1] + 1;
+        const k = l0 >= l1 ? 0 : 1, rr = k ? r1 : r0, d = ax[k], len = (k ? l1 : l0) * gm, t = (k ? l0 : l1) * gm; if (len < 0.45 || t < 0.05 || t > 0.45 || len < t * 2.5) continue;
+        // ašis per juostos vidurį (skersai)
+        const nn = ax[1 - k], rs = run(x, y, nn), mxp = x + nn[0] * (rs[1] - rs[0]) / 2, myp = y + nn[1] * (rs[1] - rs[0]) / 2;
+        const toW = (X, Y) => P2W([(X + 0.5 + ox) * g, (Y + 0.5 + oy) * g], c);
+        out.push({ w: toW(mxp, myp), a: toW(mxp - d[0] * rr[0], myp - d[1] * rr[0]), b: toW(mxp + d[0] * rr[1], myp + d[1] * rr[1]), len, t: Math.round(Math.max(0.05, t - 1.5 * gm) * 100) / 100 }); }
+    out.sort((p, q) => q.len - p.len); return out;
+}
+function agvScale() { // mastelis iš matmenų: skaičius (mm) ÷ atstumas tarp matmens kraštų (pdf taškais) => m / pdf tašką
+    if (!PDFU || !PDFU.texts || !PDFU.segs) return null; const S = PDFU.segs, votes = [];
+    PDFU.texts.forEach(t => { const s = t.s.replace(/\s/g, ''); if (!/^\d{3,5}$/.test(s)) return; const v = Number(s); if (v < 250 || v > 60000) return;
+        const e = [Math.cos(t.ang), Math.sin(t.ang)], n = [-e[1], e[0]]; let line = null;
+        for (let i = 0; i < S.length; i += 4) { const dx = S[i + 2] - S[i], dy = S[i + 3] - S[i + 1], L = Math.hypot(dx, dy); if (L < 8 || Math.abs(dx / L * n[0] + dy / L * n[1]) > 0.03) continue;
+            const o = (S[i] - t.x) * n[0] + (S[i + 1] - t.y) * n[1]; if (Math.abs(o) > 9) continue; const u1 = (S[i] - t.x) * e[0] + (S[i + 1] - t.y) * e[1], u2 = (S[i + 2] - t.x) * e[0] + (S[i + 3] - t.y) * e[1];
+            if (Math.min(u1, u2) > 0 || Math.max(u1, u2) < 0) continue; if (!line || Math.abs(o) < Math.abs(line.o)) line = { o, p: [t.x + n[0] * o, t.y + n[1] * o] }; }
+        if (!line) return; let uL = -Infinity, uR = Infinity;
+        for (let i = 0; i < S.length; i += 4) { const dx = S[i + 2] - S[i], dy = S[i + 3] - S[i + 1], L = Math.hypot(dx, dy); if (L < 2) continue; const q = [dx / L, dy / L], den = e[0] * q[1] - e[1] * q[0]; if (Math.abs(den) < 0.5 || (Math.abs(den) < 0.995 && L > 25)) continue;
+            const tu = ((S[i] - line.p[0]) * q[1] - (S[i + 1] - line.p[1]) * q[0]) / den, ts = ((S[i] - line.p[0]) * e[1] - (S[i + 1] - line.p[1]) * e[0]) / den; if (ts < -1 || ts > L + 1) continue;
+            if (tu < -1 && tu > uL) uL = tu; if (tu > 1 && tu < uR) uR = tu; }
+        if (isFinite(uL) && isFinite(uR)) votes.push(v / 1000 / (uR - uL)); });
+    if (votes.length < 2) return null; const lg = votes.map(Math.log); let best = null;
+    lg.forEach(a => { const nb = lg.filter(b => Math.abs(b - a) < 0.012); if (!best || nb.length > best.n) best = { n: nb.length, v: Math.exp(nb.reduce((x, y) => x + y, 0) / nb.length) }; });
+    if (!best || best.n < 2 || best.n < votes.length * 0.5) return null;
+    let N = best.v * 72 / 0.0254; const std = [10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 1000]; const sn = std.find(s => Math.abs(N - s) / s < 0.025); if (sn) N = sn;
+    return { mpp: N * 0.0254 / 72, N: Math.round(N * 10) / 10, votes: best.n, of: votes.length };
+}
+function agvScaleText() { // „M 1:100“, „MASTELIS 1:50“, „1:100“ – kai „M“ nėra
+    if (!PDFU || !PDFU.texts) return 0; const all = PDFU.texts.map(t => t.s).join(' ');
+    let m = all.match(/(?:\bM|MASTELIS|MASTELIS:|SCALE)\s*1\s*:\s*(\d{2,4})/i); if (m) return Number(m[1]);
+    const L = (all.match(/\b1\s*:\s*(\d{2,4})\b/g) || []).map(s => Number(s.replace(/.*:\s*/, ''))).filter(v => v >= 10 && v <= 1000); return L.length && L.every(v => v === L[0]) ? L[0] : 0;
+}
+function agvEnsureScale() { // nustato / patikrina mastelį; grąžina tekstą, ką padarė
+    const c = pdfCal(); if (!c) return null; const fromDim = agvScale(), txtN = PDFU.scaleN || agvScaleText(), cur = c.mpp;
+    const set = (mpp, how) => { c.mpp = mpp; c.ok = true; c.how = how; PDFU.agv = null; save(); };
+    const manual = /^2 taškai/.test(c.how || '') || (project.walls.length && c.al);
+    if (manual) return c.ok ? 'mastelis 1:' + Math.round(cur * 72 / 0.0254) + ' (nustatytas ranka)' : null;
+    if (fromDim && fromDim.votes >= 3 && Math.abs(fromDim.mpp - cur) / cur > 0.04) { set(fromDim.mpp, 'matmenys'); return 'mastelis 1:' + fmt(fromDim.N, fromDim.N % 1 ? 1 : 0) + ' (pagal ' + fromDim.votes + ' matmenis)'; }
+    if (c.ok) return 'mastelis 1:' + Math.round(cur * 72 / 0.0254);
+    if (fromDim) { set(fromDim.mpp, 'matmenys'); return 'mastelis 1:' + fmt(fromDim.N, fromDim.N % 1 ? 1 : 0) + ' (pagal matmenis)'; }
+    if (txtN) { set(txtN * 0.0254 / 72, 'tekstas'); return 'mastelis 1:' + txtN + ' (iš užrašo)'; }
+    return null;
+}
+function agvFindOpenings() { // angos pagal sienos paviršių linijų tarpus (mūras nenuspalvintas / užbrūkšniuotas): tarpas abiejuose paviršiuose arba staktos abiejuose galuose
+    if (!PDFU || !PDFU.segs || !PDFU.segs.length || !R || !R.n) return [];
+    const c = pdfCal(), S = PDFU.segs, segW = []; for (let i = 0; i < S.length; i += 4) { const p = P2W([S[i], S[i + 1]], c), q = P2W([S[i + 2], S[i + 3]], c), L = Math.hypot(q[0] - p[0], q[1] - p[1]); if (L >= 0.03) segW.push([p, q, L]); }
+    const found = [];
+    pdfWallList().forEach(W0 => { const d = W0.d, n = [-d[1], d[0]], t = Math.max(0.06, W0.t || 0.2), C = W0.C, A = W0.A, par = [], jam = [];
+        segW.forEach(([p, q, L]) => { const e = [(q[0] - p[0]) / L, (q[1] - p[1]) / L], cr = Math.abs(e[0] * d[1] - e[1] * d[0]);
+            const u1 = (p[0] - A[0]) * d[0] + (p[1] - A[1]) * d[1], u2 = (q[0] - A[0]) * d[0] + (q[1] - A[1]) * d[1], o1 = (p[0] - A[0]) * n[0] + (p[1] - A[1]) * n[1], o2 = (q[0] - A[0]) * n[0] + (q[1] - A[1]) * n[1];
+            if (cr < 0.02 && Math.abs(o1 - o2) < 0.01) { const o = (o1 + o2) / 2; if (Math.abs(Math.abs(o) - t / 2) <= 0.05) par.push({ s: o > 0 ? 1 : -1, u1: Math.min(u1, u2), u2: Math.max(u1, u2) }); }
+            else if (cr > 0.995 && Math.abs(u1 - u2) < 0.01) { const lo = Math.min(o1, o2), hi = Math.max(o1, o2), ov = Math.min(hi, t / 2) - Math.max(lo, -t / 2); if (ov >= t * 0.6 && hi - lo <= t + 0.25) jam.push((u1 + u2) / 2); } });
+        const gaps = sd => { const iv = par.filter(x => x.s === sd && x.u2 > 0 && x.u1 < C).map(x => [Math.max(0, x.u1), Math.min(C, x.u2)]).sort((a, b) => a[0] - b[0]), m = [];
+            iv.forEach(f => { if (m.length && f[0] <= m[m.length - 1][1] + 0.02) m[m.length - 1][1] = Math.max(m[m.length - 1][1], f[1]); else m.push(f.slice()); });
+            if (!m.length) return null; const out = []; let prev = 0; m.forEach(f => { if (f[0] - prev >= 0.25) out.push([prev, f[0]]); prev = f[1]; }); if (C - prev >= 0.25) out.push([prev, C]); return out; };
+        const gP = gaps(1), gN = gaps(-1); if (!gP || !gN) return; // be abiejų paviršių linijų – ne šitam būdui
+        const near = (u, arr) => arr.find(v => Math.abs(v - u) <= 0.04);
+        gP.concat(gN).forEach(([a, b]) => { if (a < 0.06 || b > C - 0.06 || b - a > 6) return;
+            const other = (gP.some(g => g[0] === a && g[1] === b) ? gN : gP).find(g => Math.min(b, g[1]) - Math.max(a, g[0]) >= (b - a) * 0.8);
+            const ja = near(a, jam), jb = near(b, jam); if (!other && !(ja != null && jb != null)) return;
+            let u1 = ja != null ? ja : a, u2 = jb != null ? jb : b; if (other && ja == null) u1 = Math.max(a, other[0]); if (other && jb == null) u2 = Math.min(b, other[1]);
+            if (u2 - u1 < 0.3 || found.some(f => f.wk === W0.wk && f.wi === W0.wi && f.pos < u2 - 0.05 && f.pos + f.w > u1 + 0.05)) return;
+            if (layoutOpenings(W0.wk, W0.wi, W0.C).some(it => it.u < u2 - 0.05 && it.u + it.w > u1 + 0.05)) return;
+            const mid = [A[0] + d[0] * (u1 + u2) / 2, A[1] + d[1] * (u1 + u2) / 2]; let mark = '', md = W0.wk === 'i' ? 1.2 : 3.2;
+            (PDFU.texts || []).forEach(tx => { const s = tx.s.replace(/\s/g, ''); if (!/^(L|D|LD|DL|V|VD|ŠD)-?\d{1,3}[a-z]?$/i.test(s)) return; const w = P2W([tx.x, tx.y], c), dd = Math.hypot(w[0] - mid[0], w[1] - mid[1]); if (dd < md) { md = dd; mark = s.toUpperCase(); } });
+            found.push({ wk: W0.wk, wi: W0.wi, wn: W0.name, pos: Math.round(u1 * 200) / 200, w: Math.round((u2 - u1) * 200) / 200, mark, on: true, how: 'faces' }); }); });
+    return found;
+}
+function agvFindOpeningsRaster() { // be linijų (skenas): angos ten, kur abiejuose sienos paviršiuose nėra rašalo linijos
+    if (!PDFU || !PDFU.cv || (PDFU.segs && PDFU.segs.length) || !R || !R.n) return []; const G = agvGrid(); if (!G) return []; const c = pdfCal(), found = [];
+    const dk = w => { const p = W2P(w, c), x = Math.floor(p[0] / G.g), y = Math.floor(p[1] / G.g); return x >= 0 && y >= 0 && x < G.W && y < G.H ? G.D[y * G.W + x] : 0; };
+    pdfWallList().forEach(W0 => { const d = W0.d, n = [-d[1], d[0]], t = Math.max(0.06, W0.t || 0.2), A = W0.A, C = W0.C, st = 0.01, N = Math.floor(C / st), gm = G.gm;
+        const face = sd => { const out = []; for (let k = 0; k <= N; k++) { const u = k * st; let m = 0; for (let o = t / 2 - 0.035; o <= t / 2 + 0.02; o += gm * 0.5) m = Math.max(m, dk([A[0] + d[0] * u + n[0] * o * sd, A[1] + d[1] * u + n[1] * o * sd])); out.push(m >= 40); } return out; };
+        const fp = face(1), fn = face(-1); if (fp.filter(Boolean).length < N * 0.4 || fn.filter(Boolean).length < N * 0.4) return;
+        let k = 0; while (k <= N) { if (fp[k] || fn[k]) { k++; continue; } let e = k; while (e + 1 <= N && !fp[e + 1] && !fn[e + 1]) e++;
+            const u1 = k * st, u2 = (e + 1) * st; k = e + 1; if (u1 < 0.06 || u2 > C - 0.06 || u2 - u1 < 0.3 || u2 - u1 > 6) continue;
+            if (layoutOpenings(W0.wk, W0.wi, W0.C).some(it => it.u < u2 - 0.05 && it.u + it.w > u1 + 0.05)) continue;
+            found.push({ wk: W0.wk, wi: W0.wi, wn: W0.name, pos: Math.round(u1 * 200) / 200, w: Math.round((u2 - u1) * 200) / 200, mark: '', on: true, how: 'scan' }); } });
+    return found;
+}
+function agvPolyArea(P) { let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
+
+function agvRunIn(WS, p, nin) { // mūro storis (m) nuo taško p į vidų pagal kaukę
+    const { Wm, w, h, ox, oy, G } = WS, g = G.g, gm = G.gm, at = (X, Y) => { const x = Math.floor(X / g) - ox, y = Math.floor(Y / g) - oy; return x >= 0 && y >= 0 && x < w && y < h ? Wm[y * w + x] : 0; };
+    let s = 0.5 * g; while (s < 3 * g && !at(p[0] + nin[0] * s, p[1] + nin[1] * s)) s += 0.5 * g; if (s >= 3 * g) return 0;
+    while (s < 1.0 / gm * g && at(p[0] + nin[0] * s, p[1] + nin[1] * s)) s += 0.5 * g; return Math.max(0, s - g) * gm / g;
+}
+function agvNotches(V, WS) { // įlanka (durys / langas sienoje): tarp dviejų vienoje tiesėje esančių kraštų trumpi kraštai, gylis ≤ sienos storis → užlyginama
+    const mpp = pdfCal().mpp; const n0 = () => V.length; let A2 = 0; for (let i = 0; i < V.length; i++) { const p = V[i], q = V[(i + 1) % V.length]; A2 += p[0] * q[1] - q[0] * p[1]; } const sg = A2 > 0 ? 1 : -1;
+    const ed = i => { const n = n0(), a = V[((i % n) + n) % n], b = V[(((i + 1) % n) + n) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]); return { a, b, L: L * mpp, d: L > 1e-9 ? [(b[0] - a[0]) / L, (b[1] - a[1]) / L] : [1, 0] }; };
+    for (let it = 0; it < 80 && V.length >= 6; it++) { let hit = null;
+        for (let i = 0; i < V.length && !hit; i++) { const a = ed(i); if (a.L < 0.2) continue; const nin = [-a.d[1] * sg, a.d[0] * sg];
+            for (let k = 2; k <= 7 && k < V.length - 1 && !hit; k++) { const c = ed(i + k); if (a.d[0] * c.d[0] + a.d[1] * c.d[1] < 0.9997 || c.L < 0.2) continue;
+                const off = ((c.a[0] - a.a[0]) * nin[0] + (c.a[1] - a.a[1]) * nin[1]) * mpp; if (Math.abs(off) > 0.03) continue;
+                const span = ((c.a[0] - a.b[0]) * a.d[0] + (c.a[1] - a.b[1]) * a.d[1]) * mpp; if (span < 0.2 || span > 4.0) continue;
+                let din = 0, dout = 0, ok = true; for (let q = 1; q < k; q++) { const p = ed(i + q).a, dd = ((p[0] - a.a[0]) * nin[0] + (p[1] - a.a[1]) * nin[1]) * mpp, uu = ((p[0] - a.b[0]) * a.d[0] + (p[1] - a.b[1]) * a.d[1]) * mpp;
+                    if (uu < -0.05 || uu > span + 0.05) { ok = false; break; } din = Math.max(din, dd); dout = Math.max(dout, -dd); }
+                if (!ok || din > 0.75 || dout > 0.15) continue;
+                if (din > 0.02) { const u = Math.max(0, a.L - 0.3) / mpp, p = [a.a[0] + a.d[0] * u, a.a[1] + a.d[1] * u], u2 = Math.min(0.3, c.L / 2) / mpp, p2 = [c.a[0] + c.d[0] * u2, c.a[1] + c.d[1] * u2];
+                    const t = Math.max(agvRunIn(WS, p, nin), agvRunIn(WS, p2, nin)); if (!(t > 0) || din > t + 0.06) continue; }
+                hit = { i, k }; } }
+        if (!hit) break; const n = V.length, rm = []; for (let q = 0; q < hit.k; q++) rm.push((hit.i + q + 1) % n); rm.sort((x, y) => y - x).forEach(k => V.splice(k, 1)); }
+    return V;
+}
+async function agentInnerStep(K) { // pertvaros: 1) pagal išmoktą / atspėtą pertvarų spalvą, 2) pagal brėžinio vaizdą (bet koks braižymo stilius)
+    let nIn = 0; const F = (PDFU.fills || []).filter(f => f.col !== '255,255,255' && f.col !== '0,0,0');
+    let pc = K.partCol; const mc = K.masCol || (agentCorner(K) || {}).col;
+    if (pc && !F.some(f => f.col === pc)) pc = null; // išmokta spalva šiame brėžinyje nenaudojama – spėjama iš naujo
+    if (!pc && F.length) { const cnt = {}; F.forEach(f => { if (f.col === mc) return; const v = f.col.split(',').map(Number); if (Math.max(...v) - Math.min(...v) < 12) cnt[f.col] = (cnt[f.col] || 0) + 1; }); pc = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0]; }
+    const covered = p => (RI && RI.walls.some(r => r.poly && pointInPoly(p, r.poly))) || (R && R.walls.some(w => w.oa && w.ib && pointInPoly(p, [w.oa, w.ob, w.ib, w.ia])));
+    const onWall = (p, r) => { const dx = r.b[0] - r.a[0], dy = r.b[1] - r.a[1], L2 = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - r.a[0]) * dx + (p[1] - r.a[1]) * dy) / L2));
+        return Math.hypot(r.a[0] + dx * u - p[0], r.a[1] + dy * u - p[1]) <= Math.max(0.15, (r.t || 0.1) / 2 + 0.08); };
+    const same = k => { const r = RI.walls[k], L = r.len || 1, d = [(r.b[0] - r.a[0]) / L, (r.b[1] - r.a[1]) / L]; // ta pati arba persidengianti pertvara
+        return RI.walls.some((q, j) => { if (j === k || !(q.len > 0)) return false; const e = [(q.b[0] - q.a[0]) / q.len, (q.b[1] - q.a[1]) / q.len]; if (Math.abs(e[0] * d[1] - e[1] * d[0]) > 0.02) return false;
+            const off = Math.abs((q.a[0] - r.a[0]) * d[1] - (q.a[1] - r.a[1]) * d[0]); if (off > ((q.t || 0.1) + (r.t || 0.1)) / 2 - 0.005) return false;
+            const u1 = (q.a[0] - r.a[0]) * d[0] + (q.a[1] - r.a[1]) * d[1], u2 = (q.b[0] - r.a[0]) * d[0] + (q.b[1] - r.a[1]) * d[1]; return Math.min(L, Math.max(u1, u2)) - Math.max(0, Math.min(u1, u2)) > 0.3; }); };
+    const addAt = (p, alt) => { const n = project.inner.length; try { if (!pdfInnerOneTap(p)) { if (alt) pdfAddInner(alt.a, alt.b, alt.t); }
+        else if (alt && project.inner.length > n) { const r = RI.walls[project.inner.length - 1], wt = Number(project.inner[project.inner.length - 1].t) || 0; // pusė sienos (pvz. užpildo kraštas per vidurį) – pagal vaizdą
+            if (r && r.len > 0) { const dx = r.b[0] - r.a[0], dy = r.b[1] - r.a[1], L = Math.hypot(dx, dy) || 1, off = Math.abs((p[0] - r.a[0]) * dy - (p[1] - r.a[1]) * dx) / L;
+                if (off > 0.025 && alt.t - wt > 0.03) { project.inner.pop(); changed(true); pdfAddInner(alt.a, alt.b, alt.t); } } } } catch (e) { } };
+    const tryAt = async (p, alt) => { const before = project.inner.length; agentSay('Pertvaros: ' + (nIn + 1));
+        await agentTapWorld(p, () => addAt(p, alt));
+        if (project.inner.length <= before) { await agentWait(120); return false; }
+        let k = project.inner.length - 1, r0 = RI.walls[k];
+        if (!r0 || !(r0.len > 0) || !onWall(p, r0) || same(k)) { // pertvara atsirado ne ten (kontūras eina iki kitos sienos) – bandoma su kita lygiagrečia išorės siena
+            const L0 = project.inner[k].L; project.inner.pop(); changed(true); let ok = false;
+            for (let j = 0; j < R.n && !ok; j++) { if (j === L0) continue; const e = R.walls[j], d = [e.ib[0] - e.ia[0], e.ib[1] - e.ia[1]], dl = Math.hypot(d[0], d[1]), ow = R.walls[L0]; if (!(dl > 0.05) || !ow) continue;
+                const d0 = [ow.ib[0] - ow.ia[0], ow.ib[1] - ow.ia[1]], l0 = Math.hypot(d0[0], d0[1]); if (Math.abs(d[0] * d0[1] - d[1] * d0[0]) / (dl * l0) > 0.035) continue;
+                AG.forceL = j; try { addAt(p, alt); } finally { AG.forceL = null; }
+                if (project.inner.length > before) { k = project.inner.length - 1; r0 = RI.walls[k]; if (r0 && r0.len > 0 && onWall(p, r0) && !same(k)) ok = true; else { project.inner.pop(); changed(true); } } }
+            if (!ok) { await agentWait(120); return false; } }
+        const w0 = project.inner[k];
+        if ((K.exclIn || []).some(q => Math.abs(q.len - r0.len) < 0.04 && Math.abs(q.t - (Number(w0.t) || 0)) < 0.011) || (K.minIn > 0 && r0.len < K.minIn)) { project.inner.pop(); changed(true); agentSay('Šios pertvaros praeitą kartą nenorėjote – praleidžiu'); await agentWait(500); return true; }
+        nIn++; await agentWait(200); return true; };
+    pdfStart('in'); updPdfBar();
+    if (pc) { const pcs = F.filter(f => f.col === pc).map(f => { const ctr = [(f.bb[0] + f.bb[2]) / 2, (f.bb[1] + f.bb[3]) / 2]; return { w: P2W(ctr), L: Math.max(f.bb[2] - f.bb[0], f.bb[3] - f.bb[1]) * pdfCal().mpp }; }).filter(x => x.L > 0.3 && pointInPoly(x.w, R.IN)).sort((a, b) => b.L - a.L);
+        for (const x of pcs) { if (AG.stop) throw new Error('stop'); if (covered(x.w)) continue; await tryAt(x.w, null); } }
+    agentSay('Ieškau pertvarų brėžinio vaizde…'); await agentWait(300);
+    let cands = []; try { if (!(PDFU.agv && PDFU.agv.walls && !PDFU.agv.walls.none)) agvWalls(null); cands = agvInnerCands(); } catch (e) { }
+    const failed = []; let tries = 0;
+    for (const x of cands) { if (AG.stop) throw new Error('stop'); if (tries >= 80) break;
+        if (!pointInPoly(x.w, R.IN) || covered(x.w) || failed.some(f => Math.hypot(f[0] - x.w[0], f[1] - x.w[1]) < 0.7)) continue;
+        tries++; if (!(await tryAt(x.w, x))) failed.push(x.w); }
+    pdfMode = null; updPdfBar(); return nIn;
+}
+/* ===== 💬 Agento kalba: supranta ir be lietuviškų raidžių, su vienetais (m / cm / mm), daug daugiau komandų ===== */
+function agentNorm(s) { // mažosios raidės, be diakritikų, be skyrybos – „Žiedas“ = „ziedas“
+    const M = { ą: 'a', č: 'c', ę: 'e', ė: 'e', į: 'i', š: 's', ų: 'u', ū: 'u', ž: 'z' };
+    return ' ' + String(s || '').toLowerCase().replace(/[ąčęėįšųūž]/g, ch => M[ch]).replace(/[„“"!?;]+/g, ' ').replace(/×/g, ' x ').replace(/\s+/g, ' ').trim() + ' ';
+}
+function agentVal(v, u, kind) { // skaičius su vienetu -> metrai. Be vieneto spėjama: storis 30 – cm, 300 – mm; ilgis 12 – m, 12000 – mm
+    let x = parseFloat(String(v).replace(',', '.')); if (!isFinite(x)) return NaN; u = (u || '').trim();
+    if (u === 'mm') return x / 1000; if (u === 'cm') return x / 100; if (u === 'm') return x;
+    if (kind === 't') return x <= 1.5 ? x : (x <= 100 ? x / 100 : x / 1000);
+    if (kind === 'h') return x <= 20 ? x : (x <= 1000 ? x / 100 : x / 1000);
+    if (kind === 'small') return x <= 2 ? x : (x <= 200 ? x / 100 : x / 1000);
+    return x <= 80 ? x : x / 1000;
+}
+const AG_NUM = '(\\d+(?:[.,]\\d+)?)\\s*(mm|cm|m)?(?![a-wyz])';
+const AG_EXAMPLES = [['daryk', 'daryk – viską padarau pats su PDF'], ['kas negerai', 'kas negerai – klaidos'], ['kiekiai', 'kiekiai – mūras, angos, žiedas'],
+    ['nubrėžk stačiakampį 12 x 9', 'nubrėžk stačiakampį 12 x 9'], ['sienų storis 30 cm', 'sienų storis 30 cm'], ['pertvarų storis 12', 'pertvarų storis 12'],
+    ['sienų aukštis 2,8', 'sienų aukštis 2,8'], ['rask pertvaras', 'rask pertvaras'], ['rask angas', 'rask angas'], ['rask sienas', 'rask sienas (kontūrą)'],
+    ['mastelis 1:50', 'mastelis 1:50'], ['rask mastelį', 'rask mastelį (pagal matmenis)'], ['puslapis 3', 'puslapis 3'], ['ką matai', 'ką matai brėžinyje'],
+    ['3d', '3d / iš viršaus'], ['excel', 'excel – failas'], ['ataskaita', 'ataskaita'], ['išsaugok', 'išsaugok – projekto failas'], ['atšauk', 'atšauk'],
+    ['L-1 aukštis 1,5', 'L-1 aukštis 1,5'], ['durys 2,1', 'durys 2,1'], ['sienos su žiedu', 'sienos su žiedu'], ['žiedas 0,25', 'žiedas 0,25'],
+    ['sąramos liejamos', 'sąramos liejamos / montuojamos'], ['pridėk aukštą', 'pridėk aukštą'], ['naujas projektas', 'naujas projektas'], ['pagalba', 'pagalba']];
+function agentUnderstand(raw) {
+    const t = agentNorm(raw), say = (m, b) => agentMsg('ag', m, b), N = AG_NUM;
+    const askApply = what => say('Įsiminiau: ' + what + '. Pritaikyti dabartiniam projektui?', [['Taip, pritaikyk', 'taikyk'], ['Ne', 'gerai']]);
+    const hasPdf = () => PDFU && (PDFU.cv || PDFU.doc), hasWalls = () => R && R.n;
+    const busy = () => { if (AG.run) { say('Dar dirbu – palaukite arba parašykite „stop“.'); return true; } return false; };
+    const go = fn => { AG.chatOpen = false; closeSubpanel(); setTimeout(fn, 50); };
+    let m;
+    // --- pokalbis ---
+    if (/^ (gerai|aciu|dekui|ok|aisku|super|puiku|sutinku) /.test(t)) { say('👍'); return; }
+    if (/^ (labas|sveikas|sveiki|laba diena|labas vakaras|labas rytas|sveiki gyvi) /.test(t)) { const lv = agentLevel(); say('Labas! ' + lv.ic + ' Esu ' + lv.name.toLowerCase() + '. Ką darome? Parašykite „daryk“ arba „pagalba“.'); return; }
+    if (/(kas tu|kas esi|kuo vardu|kaip tave vadinti)/.test(t)) { say('Aš – jūsų Kontūro agentas. Dirbu šioje programėlėje be interneto. Skaitau bet kokius brėžinius: sienas randu pagal jų storį ir formą (nesvarbu, ar mūras nuspalvintas, užbrūkšniuotas ar tik apvestas), mastelį – iš užrašo arba iš matmenų. Mokausi iš to, ką taisote ir ką parašote.'); return; }
+    if (/(pagalb|ka supranti|ka moki daryti|ka gali|ka mokai|komand|ka galima rasyti)/.test(t)) { say('Suprantu (galima ir be lietuviškų raidžių, su m / cm / mm):\n• daryk / stop / greičiau / lėčiau\n• rask sienas · rask pertvaras · rask angas · rask mastelį\n• mastelis 1:50 · puslapis 3 · ką matai?\n• nubrėžk stačiakampį 12 x 9 · uždaryk kontūrą\n• sienų storis 30 cm · pertvarų storis 12\n• sienų aukštis 2,8 · pertvarų aukštis 2,7\n• sienos su žiedu / be žiedo · žiedas 0,25\n• L-1 aukštis 1,5 · durys 2,1 · langai 1,5\n• sąramos liejamos / montuojamos / nėra, užlaida 0,25, aukštis 0,22\n• blokelis 200 · neimk pertvarų trumpesnių nei 1 m\n• kas negerai? · kiekiai · ką moki?\n• 3d · iš viršaus · excel · ataskaita · išsaugok · atšauk\n• pridėk aukštą · 2 aukštas · naujas projektas\n• taikyk – pritaikyti, ką išmokau · pamiršk L-1 · pamiršk viską'); return; }
+    // --- darbas su PDF ---
+    if (/ (daryk|padaryk|pradek|start|dirbk|pirmyn|varyk|darom|darykim|pradedam) /.test(t) && !/(sien|pertvar|ang|mastel)/.test(t)) { if (busy()) return; say('Pradedu. Matysite mano pirštą 👆'); go(agentRun); return; }
+    if (/ (stop|sustok|stabdyk|uzteks|nutrauk|baik|gana) /.test(t)) { AG.stop = true; say(AG.run ? 'Stabdau.' : 'Nieko nedarau.'); return; }
+    if (/ (greiciau|greitai|skubiau) /.test(t)) { AG.speed = Math.min(8, AG.speed * 2); say('Dirbsiu greičiau (×' + AG.speed + ').'); return; }
+    if (/ (leciau|letai|neskubek) /.test(t)) { AG.speed = Math.max(0.25, AG.speed / 2); say('Dirbsiu lėčiau (×' + AG.speed + ').'); return; }
+    if ((m = t.match(/(?:puslap\S*|psl\.?|lap\S*)\s*(?:nr\.?\s*)?(\d{1,3})/)) && !/mastel/.test(t)) { if (!PDFU || !PDFU.doc) { say('PDF neįkeltas – „📄 PDF“ → pasirinkite failą.'); return; } const p = Number(m[1]);
+        if (!(p >= 1 && p <= PDFU.n)) { say('Tokio puslapio nėra – PDF turi ' + PDFU.n + ' psl.'); return; } pdfLoadPage(p, true).then(() => { pdfFitView(); requestDraw(); say('Atsiverčiau ' + p + ' psl. ' + agentPageInfo()); }); return; }
+    if ((m = t.match(/(?:mastel\S*|\bm)\s*1\s*:\s*(\d{1,4})/))) { if (!hasPdf()) { say('PDF neįkeltas.'); return; } const n = Number(m[1]); if (!(n >= 5 && n <= 5000)) { say('Netinkamas mastelis.'); return; }
+        const c = pdfCal(); c.mpp = n * 0.0254 / 72; c.ok = true; c.how = 'M 1:' + n + ' (parašyta)'; PDFU.agv = null; save(); requestDraw(); say('Nustačiau mastelį 1:' + n + '.'); return; }
+    if (/mastel/.test(t) && /(rask|nustatyk|surask|patikrink|koks|kok\S* mastel|ieskok)/.test(t)) { if (!hasPdf() || !PDFU.cv) { say('PDF neįkeltas.'); return; } const c = pdfCal(), d = agvScale(), now = Math.round(c.mpp * 72 / 0.0254);
+        if (d && Math.abs(d.mpp - c.mpp) / c.mpp > 0.03 && !(project.walls.length && c.al)) say('Pagal matmenis (' + d.votes + ' iš ' + d.of + ') mastelis 1:' + fmt(d.N, d.N % 1 ? 1 : 0) + ', dabar nustatyta 1:' + now + '. Pakeisti?', [['Taip, 1:' + Math.round(d.N), 'mastelis 1:' + Math.round(d.N)], ['Ne', 'gerai']]);
+        else say('Mastelis 1:' + now + (d ? ' – sutampa su matmenimis (' + d.votes + ' matmenys) ✔' : (c.ok ? ' (' + (c.how || 'nustatytas') + ')' : ' – nepatikrintas, matmenų nepavyko perskaityti. Nustatykite „📏 Mastelis“.'))); return; }
+    if (/(ka matai|kas cia|koks brezin|kas brezin|apibudink|ka rodo)/.test(t)) { say(hasPdf() ? agentPageInfo(true) : 'PDF neįkeltas – „📄 PDF“.'); return; }
+    if (/(rask|surask|ieskok|sudek|sudeti|ideti|idek|pridek|sudeliok|atpazink|daryk|padaryk) /.test(t) && /(pertvar|vidin)/.test(t) && !/(stor|auksti|zied)/.test(t)) { if (busy()) return; if (!hasWalls() || !project.closed) { say('Pirmiau reikia uždaro išorės kontūro – parašykite „rask sienas“ arba „daryk“.'); return; }
+        if (!PDFU || !PDFU.cv) { say('PDF neįkeltas.'); return; } say('Ieškau pertvarų…'); go(async () => { AG.run = true; AG.stop = false; updAgentChip(); let n = 0; try { n = await agentInnerStep(agentKnow()); } catch (e) { } AG.run = false; updAgentChip(); agentHide(); agentMsg('ag', n ? '✔ Radau ir įdėjau ' + n + ' pertvaras. Pataisykite, jei ne taip.' : 'Naujų pertvarų neradau.'); }); return; }
+    if (/(rask|surask|ieskok|sudek|sudeti|idek|pridek|daryk|padaryk) /.test(t) && /(ang|lang|dur)/.test(t) && !/(auksti|saram)/.test(t)) { if (!hasWalls()) { say('Pirmiau reikia sienų.'); return; } if (!PDFU || !PDFU.cv) { say('PDF neįkeltas.'); return; } go(pdfFindAllOpenings); return; }
+    if (/(rask|surask|ieskok|sudek|sudeti|nubrezk|nubraizyk|atpazink|apeik|daryk|padaryk) /.test(t) && /(sien|kontur|isor|perimetr)/.test(t) && !/(stor|auksti|zied|\d)/.test(t)) { if (busy()) return; if (!PDFU || !PDFU.cv) { say('PDF neįkeltas – „📄 PDF“.'); return; }
+        if (project.walls.length) { say('Išorės sienos jau yra (' + project.walls.length + '). Norite iš naujo – „naujas projektas“, tada „rask sienas“.'); return; } go(agentRun); return; }
+    // --- brėžimas ir nustatymai ---
+    if ((m = t.match(new RegExp('(?:staciakamp\\S*|nam\\S*|pastat\\S*|kontur\\S*|nubrezk|nubraizyk|braizyk|brezk)[^\\d]*' + N + '\\s*(?:x|\\*|ant|per|kart)\\s*' + N)))) {
+        if (project.walls.length) { say('Brėžinys jau turi sienų. Pirma „naujas projektas“ – tada nubrėšiu.', [['Naujas projektas', 'naujas projektas']]); return; }
+        const a = agentVal(m[1], m[2]), b = agentVal(m[3], m[4]); if (!(a > 0.5 && b > 0.5 && a < 300 && b < 300)) { say('Netinkami matmenys.'); return; }
+        const s = project.settings; snapshot(); [[a, 0], [b, 90], [a, 180], [b, 270]].forEach(([len, dir]) => project.walls.push({ len, mode: 'L', t: s.t, dir, name: '', hMode: 'one', h: s.h, h1: '', h2: '', hx: '', hm: '' }));
+        project.closed = true; try { diagsOnClose(); } catch (e) { } changed(); fitView(); requestDraw(); say('✔ Nubrėžiau ' + fmt(a) + ' × ' + fmt(b) + ' m (pagal išorę), storis ' + fmtT(s.t) + ' m, aukštis ' + fmt(s.h) + ' m. ↶ – atšaukti.'); return; }
+    if (/(uzdaryk|uzdaryti|uzdarom) /.test(t) && /(kontur|sien|$)/.test(t)) { if (project.closed) { say('Kontūras jau uždarytas ✔'); return; } toggleClose(); setTimeout(() => say(project.closed ? '✔ Uždariau kontūrą.' : 'Kontūras nesusieina – programa pasiūlė, ką daryti.'), 300); return; }
+    if ((m = t.match(new RegExp('(?:stor\\S*|\\bt\\b)\\s*(?:=|:)?\\s*' + N))) && !/(zied|saram|blokel)/.test(t)) { const v = agentVal(m[1], m[2], 't'); if (!(v >= 0.03 && v <= 1.5)) { say('Netinkamas storis.'); return; }
+        const pert = /(pertvar|vidin)/.test(t); snapshot(); const s = project.settings; if (pert) s.tIn = v; else s.t = v; const L = pert ? project.inner : project.walls; L.forEach(w => { w.t = v; }); changed(true);
+        say('✔ ' + (pert ? 'Pertvarų' : 'Išorės sienų') + ' storis ' + fmtT(v) + ' m' + (L.length ? ' – pakeista ' + L.length + ' ' + (pert ? 'pertvaroms' : 'sienoms') : ' – naujoms') + '. ↶ – atšaukti.'); return; }
+    // --- vaizdas, failai ---
+    if (/ (3d|trimat\S*|erdv\S*) /.test(t)) { if (!hasWalls()) { say('Dar nėra sienų.'); return; } go(() => set3d(true)); return; }
+    if (/(is virsaus|2d|plana rodyk|grizk i plana)/.test(t)) { go(() => { if (view3d) set3d(false); if (sideView) setSide(false); fitView(); requestDraw(); }); return; }
+    if (/ excel/.test(t)) { if (!hasWalls()) { say('Dar nėra sienų – nėra ko dėti į Excel.'); return; } go(saveExcelFile); return; }
+    if (/ataskait/.test(t)) { if (!hasWalls()) { say('Dar nėra sienų.'); return; } go(() => reportDialog(/klient/.test(t) ? 'client' : 'full')); return; }
+    if (/(issaugok|issaugoti|irasyk|saugok) /.test(t) && !/(pamok|zini)/.test(t)) { saveFile(); say('💾 Projektas išsaugotas failu (Atsisiuntimai).'); return; }
+    if (/ (atsauk|atsaukti|undo|grazink) /.test(t)) { undo(); say('↶ Atšaukiau paskutinį veiksmą.'); return; }
+    if (/(naujas projekt|nauja projekt|isvalyk|is naujo|pradek is naujo)/.test(t)) { go(confirmNew); return; }
+    if (/(pridek|prideti|naujas|nauja|dar vien\S*) aukst/.test(t) && !/auksti/.test(t)) { addFloor(); say(floorCount() > 1 ? '🏢 Pridėjau aukštą – dabar ' + floorCount() + ' aukštai. Rodomas ' + floorName(project.fl) + '.' : 'Aukšto pridėti nepavyko – pirmiau nubraižykite sienas.'); return; }
+    if ((m = t.match(/(\d{1,2})\s*(?:-?(?:as|asis|ojo|o|a))?\s*aukst/)) && !new RegExp('auksti').test(t) && floorCount() > 1) { const k = Number(m[1]) - 1; if (k >= 0 && k < floorCount()) { setFloor(k); say('Rodomas ' + floorName(k) + '.'); return; } }
+    // --- žinios ---
+    if (/(ka moki|ka zinai|ka ismokai|ka ismokei|ko ismokai)/.test(t)) { const K = agentKnow(), lv = agentLevel(); const kn = agentKnowText(K).concat(K.gen ? agentGenText(K.gen) : []);
+        say(lv.ic + ' ' + lv.name + ' (patirtis ' + lv.xp + ', pamokų ' + agentStore().lessons.length + ').\nBet kokiame brėžinyje sienas randu pagal jų storį ir formą, mastelį – iš matmenų.\n' + (kn.length ? '• ' + kn.join('\n• ') : 'Ypatingų taisyklių dar neišmokau – parodykite arba parašykite.')); return; }
+    if (/(kas negerai|klaid|patikr|problem|kur bed|kas ne taip)/.test(t)) { if (!hasWalls()) { say('Projekte dar nėra sienų.'); return; }
+        const bad = QC.concat(RI && RI.m ? RI.checks : []).filter(c => c.status === 'KLAIDA' || c.status === 'ĮSPĖJIMAS');
+        say(bad.length ? bad.slice(0, 6).map(c => (c.status === 'KLAIDA' ? '✖ ' : '⚠ ') + c.name + (c.note ? ' – ' + c.note.slice(0, 140) : '')).join('\n') : '✔ Patikros praėjo – klaidų nėra.'); return; }
+    if (/(kiek|suvestin|kubatur|kvadratur|kiekiai|turis|plotas)/.test(t) && !new RegExp(N).test(t.replace(/\d+\s*aukst/, ''))) { if (!Q || !Q.tot || !hasWalls()) { say('Dar nėra ką skaičiuoti – projekte nėra sienų. Parašykite „daryk“.'); return; } const T = Q.tot;
+        say('Mūras: ' + fmt(T.BK) + ' m², ' + fmt(T.BV, 3) + ' m³\nGrynas mūras: ' + fmt(T.BE) + ' m², ' + fmt(T.BP, 3) + ' m³\nAngų: ' + (T.nOpen || 0) + ' (' + fmt(T.AD || 0) + ' m²)\nŽiedas: ' + fmt(T.CE || 0) + ' m, ' + fmt(T.CF || 0, 3) + ' m³\nSienų: ' + R.n + ', pertvarų: ' + (RI ? RI.m : 0)); return; }
+    if (/(pamirsk|uzmirsk|istrink) (viska|visas pamokas)/.test(t)) { say('Tikrai pamiršti viską? Visos pamokos bus ištrintos.', [['Taip, pamiršk', 'trinti viską tikrai'], ['Ne', 'gerai']]); return; }
+    if (/trinti viska tikrai/.test(t)) { agentStore({ lessons: [], stats: {} }); say('Pamiršau viską. Vėl esu 🍼 kūdikis.'); return; }
+    if ((m = t.match(/(?:pamirsk|uzmirsk)\s+([a-z]{1,2})\s*-?\s*(\d{1,3})/))) { const key = (m[1] + m[2]).toUpperCase(); const st = agentStore(); let n = 0; st.lessons.forEach(L => { if (L.rules && L.rules.marks && L.rules.marks[key]) { delete L.rules.marks[key]; n++; } }); agentStore(st); say(n ? 'Pamiršau ' + key + '.' : key + ' nežinojau.'); return; }
+    if (/ (taikyk|pritaikyk|taikom) /.test(t)) { agentApplyNow(); return; }
+    // --- mokymas sakiniais ---
+    const R0 = {}, said = []; const tt = t.replace(/\b1\s*:\s*\d+/g, ' ');
+    const reMark = new RegExp('\\b([ld]{1,2})\\s*-?\\s*(\\d{1,3}[a-z]?)\\s*(?:aukstis|auksti|aukscio|h|=|:)?\\s*' + N, 'g'); let mm;
+    while ((mm = reMark.exec(tt))) { const key = (mm[1] + mm[2]).toUpperCase(), h = agentVal(mm[3], mm[4], 'h'); if (h > 0.2 && h < 5) { R0.marks = R0.marks || {}; R0.marks[key] = { h, kind: /^D/.test(key) ? 'D' : 'L' }; said.push(key + ' aukštis ' + fmt(h)); } }
+    const noMark = l => !new RegExp('\\b' + l + '\\s*-?\\s*\\d').test(tt);
+    if ((m = tt.match(new RegExp('\\bdur\\S*\\s*(?:aukstis|auksti|h)?\\s*' + N))) && noMark('d')) { const h = agentVal(m[1], m[2], 'h'); if (h > 1 && h < 4) { R0.doorH = h; said.push('durys be žymės ' + fmt(h)); } }
+    if ((m = tt.match(new RegExp('\\b(?:visos\\s+)?angos?\\s*(?:aukstis|auksti|h)?\\s*' + N))) && noMark('[ld]')) { const h = agentVal(m[1], m[2], 'h'); if (h > 0.5 && h < 4) { R0.winH = h; R0.doorH = h; said.push('visos angos be žymės ' + fmt(h)); } }
+    if ((m = tt.match(new RegExp('\\blang\\S*\\s*(?:aukstis|auksti|h)?\\s*' + N))) && noMark('l')) { const h = agentVal(m[1], m[2], 'h'); if (h > 0.2 && h < 4) { R0.winH = h; said.push('langai be žymės ' + fmt(h)); } }
+    const G = { outer: {}, inner: {} }, pert = /(pertvar|vidin)/.test(tt), sien = !pert && (/\bsien/.test(tt) || /^ (aukstis|h) /.test(tt));
+    if ((sien || pert) && (m = tt.replace(/zied\S*\s*(?:aukstis|auksti|h)?\s*0[.,]\d+/g, ' ').match(new RegExp('(?:^|[^\\d.,])' + N))) && !/(trumpesn|ilgesn|stor)/.test(tt)) {
+        const h = agentVal(m[1], m[2], 'h'); if (h >= 1.2 && h <= 15) { (pert ? G.inner : G.outer).hMode = 'one'; (pert ? G.inner : G.outer).h = h; said.push((pert ? 'pertvarų' : 'sienų') + ' aukštis ' + fmt(h)); if (!pert) R0.h = h; } }
+    if (/be ziedo/.test(tt) && (sien || pert)) { (pert ? G.inner : G.outer).btype = 'noring'; said.push((pert ? 'pertvaros' : 'sienos') + ' be žiedo'); }
+    else if (/su ziedu/.test(tt) && (sien || pert)) { (pert ? G.inner : G.outer).btype = 'ring'; said.push((pert ? 'pertvaros' : 'sienos') + ' su žiedu'); }
+    if ((m = tt.match(new RegExp('zied\\S*\\s*(?:aukstis|auksti|h)?\\s*' + N)))) { const h = agentVal(m[1], m[2], 'small'); if (h > 0.05 && h < 1.5) { R0.ringH = h; said.push('žiedo aukštis ' + fmt(h)); } }
+    if (/saram/.test(tt)) { const L = Object.assign({ lt: 'M', ll: 0.25, lr: 0.25, lh: 0.22 }, agentKnow().lint || {});
+        if (/liejam/.test(tt)) L.lt = 'L'; else if (/montuoj|surenkam/.test(tt)) L.lt = 'M'; else if (/(nera|be saramu|nereikia)/.test(tt)) L.lt = '';
+        if ((m = tt.match(new RegExp('uzlaid\\S*\\s*' + N)))) { L.ll = L.lr = agentVal(m[1], m[2], 'small'); } if ((m = tt.match(new RegExp('(?:aukstis|auksti|h)\\s*' + N)))) L.lh = agentVal(m[1], m[2], 'small');
+        R0.lint = L; said.push('sąramos: ' + (L.lt === 'L' ? 'liejamos' : (L.lt === 'M' ? 'montuojamos' : 'nėra')) + (L.lt ? ', užlaida ' + fmt(L.ll) + ', aukštis ' + fmt(L.lh) : '')); }
+    if ((m = tt.match(new RegExp('blokel\\S*\\s*(?:aukstis|auksti|h)?\\s*' + N)))) { const b = agentVal(m[1], m[2] || 'mm', 'small'); const b2 = m[2] ? b : (parseFloat(m[1].replace(',', '.')) < 2 ? parseFloat(m[1].replace(',', '.')) : b); if (b2 > 0.04 && b2 < 1) { R0.blockH = b2; said.push('blokelis ' + Math.round(b2 * 1000) + ' mm'); } }
+    if ((m = tt.match(new RegExp('(neimk|nedek|praleisk|nereikia)\\s+pertvar\\S*\\s+(trumpesn\\S*\\s+(?:nei|uz|kaip)\\s*)?' + N)))) { R0.minIn = agentVal(m[3], m[4]); said.push('pertvaros trumpesnės nei ' + fmt(R0.minIn) + ' m – nededu'); }
+    if (Object.keys(G.outer).length || Object.keys(G.inner).length) { R0.gen = {}; if (Object.keys(G.outer).length) R0.gen.outer = G.outer; if (Object.keys(G.inner).length) { R0.gen.inner = {}; [8, 10, 11, 12, 15, 20, 25].forEach(x => R0.gen.inner[String(x)] = G.inner); } }
+    if (said.length) { agentTeach(R0, said.join('; ')); AG.lastTeach = R0; askApply(said.join('; ')); return; }
+    // --- nesupratau: pasiūlau artimiausius sakinius ---
+    const words = t.trim().split(' ').filter(w => w.length >= 3).map(w => w.slice(0, 4)), sc = AG_EXAMPLES.map(([cmd, txt]) => { const cw = agentNorm(cmd).trim().split(' ').map(w => w.slice(0, 4)); return { cmd, txt, s: cw.filter(w => words.includes(w)).length }; }).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 3);
+    if (sc.length) say('Nesupratau iki galo 🤔. Gal norėjote:', sc.map(x => [x.txt.split(' – ')[0], x.cmd]));
+    else say('Nesupratau 🤔. Parašykite „pagalba“ – parodysiu, ką suprantu. Pvz.: „daryk“, „rask pertvaras“, „sienų storis 30 cm“, „L-1 aukštis 1,5“.', [['Pagalba', 'pagalba'], ['▶ Daryk', 'daryk']]);
+}
+function agentPageInfo(full) { // trumpai: kas yra atvertame PDF puslapyje
+    if (!PDFU) return ''; const c = pdfCal(), t = (PDFU.texts || []).map(x => x.s), nums = t.filter(s => /^\d{3,5}$/.test(s.replace(/\s/g, ''))).length, marks = t.filter(s => /^(L|D|LD|V|VD)-?\d{1,3}$/i.test(s.replace(/\s/g, ''))).length;
+    const title = t.filter(s => /plan/i.test(s) && s.length < 60).sort((a, b) => b.length - a.length)[0] || '';
+    const fills = {}; (PDFU.fills || []).forEach(f => { if (f.col !== '255,255,255') fills[f.col] = (fills[f.col] || 0) + 1; });
+    const style = Object.keys(fills).length ? 'mūras gali būti nuspalvintas (' + Object.keys(fills).length + ' spalvos)' : 'spalvų nėra – sienas atpažinsiu pagal linijas ir brūkšniuotę';
+    let s = (PDFU.n > 1 ? PDFU.page + ' psl. iš ' + PDFU.n : '1 psl.') + (title ? ' – „' + title + '“' : '') + '.';
+    if (full) { s += '\nMastelis: ' + (c && c.ok ? '1:' + Math.round(c.mpp * 72 / 0.0254) + (c.how ? ' (' + c.how + ')' : '') : 'nenustatytas') + '.\nMatmenų skaičių: ' + nums + ', angų žymių: ' + marks + '.\n' + style + '.';
+        const src = agentSrc(); if (src) s += '\nProjektuotojas: ' + src + '.'; }
+    return s;
 }
 function fixProject(p) {
     const q = newProject();
