@@ -29,6 +29,16 @@ Nebuvo: kelių PDF viename projekte, bendro dokumentų indekso, agentų architek
 
 Senas 🤖 Agentas ir visos kitos funkcijos paliktos kaip buvo.
 
+## Braižymas: agentai, įrankiai, braižytojas, „Pamatai“
+
+Išsami programos analizė ir šio pakeitimo aprašas – [PROGRAMOS_ANALIZE.md](PROGRAMOS_ANALIZE.md). Trumpai:
+
+- **Vienas mygtukas 🧠 Agentai** – Planner, 6 agentai, 🤖 Braižytojas (senasis agentas), dokumentai, kiekiai, Board, pataisymai.
+- **`KS.Tools`** – programos braižymo įrankiai agentams (aukštai, kontūras, vidinės sienos per bendrą `addInnerAt`, sienų / angų / sąramų / žiedo / perdangų savybės); su ↶ ir Board „ACTION“ įrašais.
+- **„Pamatai“** – pirmas aukštų sąrašo elementas (`floors[0].fnd`), nubraižytas Pamatų agento sienų įrankiais; aukšto kontūro poslinkis `org` sulygiuoja jį su 1 aukštu; `floorBases` – 1 aukšto ±0,00 = pamato viršus.
+- **Braižytojas** (senasis agentas) – Planner jį moko (pamoka iš visų dokumentų) ir įsako braižyti jūsų pasirinktame brėžinyje.
+- Planner: „✏️ Braižyti“ (Pamatai → sienos → angos, sąramos, žiedas, perdangos) ir „▶ Tikrinti“.
+
 ## Struktūra
 
 ```

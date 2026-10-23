@@ -1,0 +1,134 @@
+[
+ {
+  "nr": "D1",
+  "name": "Vienas mygtukas „🧠 Agentai“ (be PDF taip pat), ⚙️ – viena vieta, senojo „🤖 Agentas“ mygtuko nebėra",
+  "res": "PASISEKĖ",
+  "note": "{\"chip\":\"🧠 Agentai 🍼\",\"vis\":\"block\",\"oldCell\":false,\"cells\":1}"
+ },
+ {
+  "nr": "D2",
+  "name": "Mygtukas atidaro viską: Planner, Agentai, Braižytojas, Dokumentai, Kiekiai, Board, Pataisymai",
+  "res": "PASISEKĖ",
+  "note": "📋 Planner · 🧩 Agentai · 🤖 Braižytojas · 📚 Dokumentai (0) · 📊 Kiekiai · 📡 Board · ✎ Pataisymai"
+ },
+ {
+  "nr": "D3",
+  "name": "Pamatų agentas sukuria aukštą „Pamatai“, buvęs aukštas lieka „1 aukštas“",
+  "res": "PASISEKĖ",
+  "note": "Pamatai / 1 aukštas · „Pamatai“: 4 išorės rostverkai, 2 vidiniai, 11 poliai – rodomi agentų sluoksnyje (pamatai.pdf 1 psl., kalibruotas pamatų lapas)"
+ },
+ {
+  "nr": "D4",
+  "name": "„Pamatai“ nubraižyti programos sienų įrankiais: 4 išorės rostverkai 11/7 m, plotis 0,6, aukštis 0,5 (iš specifikacijos), be žiedo",
+  "res": "PASISEKĖ",
+  "note": "[[11,0.6,0.5,\"noring\",\"C\"],[7,0.6,0.5,\"noring\",\"C\"],[11,0.6,0.5,\"noring\",\"C\"],[7,0.6,0.5,\"noring\",\"C\"]] · tarpas 2.1929269894979962e-15"
+ },
+ {
+  "nr": "D5",
+  "name": "Vidiniai rostverkai – vidinėmis sienomis: 6,4 m ir 5,45 m, plotis 0,5",
+  "res": "PASISEKĖ",
+  "note": "[[6.4,0.5],[5.45,0.5]]"
+ },
+ {
+  "nr": "D6",
+  "name": "„Pamatai“ sulygiuoti su 1 aukštu (ašių kampai sutampa)",
+  "res": "PASISEKĖ",
+  "note": "didžiausias nuokrypis 0.00 mm"
+ },
+ {
+  "nr": "D7",
+  "name": "Aukščiai: 1 aukšto ±0,00 = pamato viršus, „Pamatai“ – žemiau",
+  "res": "PASISEKĖ",
+  "note": "[-0.5,0]"
+ },
+ {
+  "nr": "D8",
+  "name": "Pamatų agentas skaičiuoja nubraižytus „Pamatai“: plotas 27,525 m², betonas ≈ 13,76 m³ (programos skaičiavimas)",
+  "res": "PASISEKĖ",
+  "note": "[[\"Rostverkų ilgis (išorė – ašimis, vidus – tarp rostverkų)\",47.85],[\"Rostverkų plotas\",27.512],[\"Rostverkų betonas (programos skaičiavimas)\",13.763],[\"Poliai Ø400\",2],[\"Poliai □300\",9],[\"Polių ilgis viso\",70]]"
+ },
+ {
+  "nr": "D9",
+  "name": "„Pamatai“ ↔ pamatų brėžinys: plotas ir vieta sutampa; 1 aukšto sienos ant rostverkų; patikrinta ir perduota",
+  "res": "PASISEKĖ",
+  "note": "„Pamatai“ ↔ pamatų brėžinys (pamatai.pdf 1 psl.): rostverkų plotas OK brėžinyje 27,53 m², nubraižyta 27,51 m² | „Pamatai“ sutampa su brėžiniu vietoje (kalibruotas pamatų lapas) OK visi 6 | „Pamatai“ po 1 aukšto išorinėmis sienomis OK visos 4 stovi ant rostverkų · {\"ok\":true,\"same\":true,\"coord\":\"17 obj. patikrinta, didžiausias nuokrypis 0,00 mm\",\"draw\":\"17 / 17 nupiešta, 17 matoma pikseliuose\",\"why\":\"\"}"
+ },
+ {
+  "nr": "D10",
+  "name": "Sienų agentas „Pamatai“ aukšto sienomis nelaiko",
+  "res": "PASISEKĖ",
+  "note": "objektų aukštai: 1"
+ },
+ {
+  "nr": "D11",
+  "name": "Planner moko braižytoją iš visų dokumentų (L-1 1,5, D-1 2,1, žiedas 0,19)",
+  "res": "PASISEKĖ",
+  "note": "Išmokė Planner iš projekto dokumentų: | L1: 1,50 × 1,50 (architektura.pdf 1 psl.) | D1: 0,90 × 2,10 (architektura.pdf 1 psl.) | žiedo aukštis 0,19 (architektura.pdf 1 psl.)"
+ },
+ {
+  "nr": "D12",
+  "name": "Planner įsako braižytojui braižyti 1 aukštą jūsų atidarytame brėžinyje",
+  "res": "PASISEKĖ",
+  "note": "{\"fl\":1,\"pdf\":\"architektura.pdf\",\"page\":1}"
+ },
+ {
+  "nr": "D13",
+  "name": "Be jūsų pasirinkto brėžinio braižytojas nekviečiamas (piešimo lapą nurodote jūs)",
+  "res": "PASISEKĖ",
+  "note": "Brėžinys piešimui nepasirinktas – 📄 PDF: pasirinkite failą ir aukšto plano puslapį (jūs nurodote, ant ko piešti)"
+ },
+ {
+  "nr": "D14",
+  "name": "Angų agentas įrašo trūkstamus matmenis pagal žymę (L-1 1,5×1,5), D-1 2,2 nekeičia",
+  "res": "PASISEKĖ",
+  "note": "[[\"L-1\",1.5,1.5,\"L\"],[\"D-1\",0.9,2.2,\"M\"]] · 1 angoms įrašyti matmenys iš žiniaraščio"
+ },
+ {
+  "nr": "D15",
+  "name": "Sąramų agentas – sąrama angai be jos (iš braižytojo žinių), esamos nekeičia",
+  "res": "PASISEKĖ",
+  "note": "1 angoms pridėta sąrama (iš braižytojo žinių)"
+ },
+ {
+  "nr": "D16",
+  "name": "Žiedo agentas įrašo žiedo aukštį 0,19 iš dokumentų",
+  "res": "PASISEKĖ",
+  "note": "Žiedo aukštis 0,19 m (architektura.pdf 1 psl.)"
+ },
+ {
+  "nr": "D17",
+  "name": "Perdangų agentas nustato perdangą: g/b plokštės 0,22",
+  "res": "PASISEKĖ",
+  "note": "1 perdangos (architektura.pdf 1 psl.: Perdanga: g/b plokstes 220) · {\"type\":\"pre\",\"pt\":0.22}"
+ },
+ {
+  "nr": "D18",
+  "name": "Agentų pakeitimus galima atšaukti ↶",
+  "res": "PASISEKĖ",
+  "note": "{\"n\":9,\"after\":8}"
+ },
+ {
+  "nr": "D19",
+  "name": "Kiekvienas agento veiksmas programoje registruojamas Board (ACTION)",
+  "res": "PASISEKĖ",
+  "note": "{\"fnd\":5,\"open\":1,\"lint\":1,\"ring\":1,\"slab\":1}"
+ },
+ {
+  "nr": "D20",
+  "name": "Be pamatų brėžinio: „Pamatai“ – juostos po 1 aukšto sienų ašimis (b 0,5 × h 0,4)",
+  "res": "PASISEKĖ",
+  "note": "„Pamatai“: 4 išorės rostverkai, 0 vidiniai (pagal 1 aukštas laikančias sienas, b × h = 0,500 × 0,400 m (vartotojas)) · [[8.6,0.5,0.4],[5.6,0.5,0.4],[8.6,0.5,0.4],[5.6,0.5,0.4]]"
+ },
+ {
+  "nr": "D21",
+  "name": "Braižytojas (senasis agentas) piešia tikrame architektūros brėžinyje",
+  "res": "NETESTUOTA",
+  "note": "Testuota tik įsakymo perdavimas (agentRun pakeistas stebėjimo funkcija); jo braižymas spalvotame PDF – kaip anksčiau, netestuotas šiame teste"
+ },
+ {
+  "nr": "E",
+  "name": "Nebuvo JavaScript klaidų",
+  "res": "PASISEKĖ",
+  "note": ""
+ }
+]

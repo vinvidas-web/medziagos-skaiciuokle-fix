@@ -55,7 +55,7 @@ const FIX = {
     // 2. esamos funkcijos: pavyzdys, skaičiavimas, ataskaita, Excel, 3D, nustatymų skydelis
     const keep = await ev(async () => {
         loadExample(); const n = project.walls.length, area = R && R.wallArea, q = Q && Q.tot && Q.tot.outM2;
-        set3d(true); draw(); set3d(false); openPanel('settings'); const rows = document.body.innerText.includes('Agentai 6 + Planner'); closePanel();
+        set3d(true); draw(); set3d(false); openPanel('settings'); const rows = document.body.innerText.includes('Agentai (visi)'); closePanel();
         let xl = 0; const orig = window.download; window.download = (name, blob) => { xl = blob.size; }; try { await saveExcelFile(); } catch (e) { } window.download = orig;
         return { n, area, q, rows, xl, closed: project.closed };
     });

@@ -2,9 +2,9 @@
 
 Data: 2026-10-23 · Aplinka: Chromium (Playwright), telefono ekranas 412×860 · Failas: `kontura.html`
 
-Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cjs`, `node tests/axes.cjs`, `node tests/fnd.cjs`, tada `node tests/ataskaita.cjs`.
+Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cjs`, `node tests/axes.cjs`, `node tests/fnd.cjs`, `node tests/draw.cjs`, tada `node tests/ataskaita.cjs`.
 
-**Iš viso – PASISEKĖ: 74 · NEPAVYKO: 0 · NETESTUOTA: 4**
+**Iš viso – PASISEKĖ: 95 · NEPAVYKO: 0 · NETESTUOTA: 5**
 
 > Bandyta su testui sugeneruotais PDF ir vaizdais bei programos pavyzdžiais (📐 pavyzdys, 🏢 5 aukštų). OCR laikai – kompiuterio Chromium; telefone bus lėčiau. **Su tikrais statybiniais brėžiniais netestuota.** Specifikacijos 20 skyriaus punktai 11 (ašys) ir 12 (mastelis) tikrinami skyriuje „Ašys“ (A1–A16b).
 
@@ -36,8 +36,8 @@ Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cj
 | 20b | „Užbaigta“ rodoma tik patikrintiems ir perduotiems rezultatams | ✅ PASISEKĖ | neužbaigti: fnd:NEEDS_DATA |
 | 23 | Pataisymai registruojami (ir agentas perskaičiuoja) | ✅ PASISEKĖ | {"st":"COMPLETED","v":{"floor":0,"name":"Pamatų betonas","unit":"m³","v":11.171600000000002},"L":55.858000000000004,"n":2} |
 | 23a | Vartotojo patvirtinti duomenys apsaugoti (nauja versija laukia sprendimo) | ✅ PASISEKĖ | {"n":11,"st":"APPROVED","pending":true,"req":1} |
-| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvlfyiq7cj6u1","h":"f8lp38","docs":4,"saved":true,"log":174} |
-| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvlfyiq7cj6u1","h":"f8lp38","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
+| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvli7vuyjglhy","h":"15u47l1","docs":4,"saved":true,"log":174} |
+| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvli7vuyjglhy","h":"15u47l1","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
 | 22a | Projekto failas (💾 .json) išsaugo ir atkuria agentų duomenis | ✅ PASISEKĖ |  |
 | 24 | Naujas PDF inicijuoja reikalingas pakartotines patikras | ✅ PASISEKĖ | pakeitimai: [{"no":"SRBS32-01-TDP-SK-01","rev":"0 → 1","add":[12500]}]; pertikrinti: fnd |
 | 24a | Pakeistos redakcijos puslapis nebenaudojamas (rostverkas 500, ne 600) | ✅ PASISEKĖ | kandidatai: 500 |
@@ -59,7 +59,7 @@ Skenas: A4 lapas 2480×1754 px (≈212 DPI), tik paveikslėlis, be teksto sluoks
 | O5 | Skenas: dydžiai, altitudė, medžiaga | ✅ PASISEKĖ | dydžiai 600x400 · altitudės -1.2 · c25/30 |
 | O6 | Pamatų agentas: OCR skerspjūvis – tik pasiūlymas su žyma „OCR“ | ✅ PASISEKĖ | Pamato skerspjūvis (plotis × aukštis) nepatvirtintas – dokumentuose rasta: 600×400 (skenas.pdf 1 psl., OCR). Įveskite arba patvirtinkite – spėjimas nenaudojamas. |
 | O7 | Pagrindinis langas: skeno mastelis ir tekstai iš OCR | ✅ PASISEKĖ | {"n":23,"ocr":true,"scale":100} |
-| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 88 % · 9 s |
+| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 89 % · 9 s |
 | O9 | Nuotrauka priskiriama projektui pagal OCR adresą | ✅ PASISEKĖ | AUTO · Senolių g. 32 |
 | O10 | Žiniaraštis iš nuotraukos: prieštaravimas pažymimas kaip OCR | ✅ PASISEKĖ | Prieštaravimas: L-1 modelyje 1,20×1,50, nuotrauka.jpg 1 psl. – 1,50×1,50 (atpažinta OCR – patikrinkite brėžinyje) (nesirenkama automatiškai) |
 | O11 | Pasvirusi nuotrauka (perspektyva) ir ranka rašytas tekstas | ⬜ NETESTUOTA | Perspektyvos ištiesinimas neįdiegtas; ranka rašyto teksto Tesseract patikimai neatpažįsta |
@@ -110,4 +110,33 @@ Vektorinis pamatų planas M 1:100: perimetro rostverkas 600 mm ašyse 1, 3, A, C
 | F11 | Specifikacijoje nesantis rostverko plotis → aukštis nežinomas, tūris neskaičiuojamas | ✅ PASISEKĖ | Rostverko aukštis nežinomas (plotis 500, plotis 500) – įveskite h arba įkelkite specifikaciją „R-1 …×…“ |
 | F12 | Nekalibruotas brėžinys: koordinatės brėžinio, sienų palyginimas neatliekamas | ✅ PASISEKĖ | puslapis nekalibruotas (📏) – koordinatės brėžinio, sienų palyginimas neatliekamas |
 | F13 | Rostverkai ir poliai skenuotuose brėžiniuose ir nuotraukose | ⬜ NETESTUOTA | Atpažįstama tik vektoriniuose PDF; skenuose (vaizde) rostverkų ir polių nėra ieškoma |
+| E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |
+
+## Agentai braižo programos įrankiais (tests/draw.cjs)
+
+1 aukštas – sienos ašyse 11 × 7 m; pamatų planas (kaip aukščiau, kalibruotas); architektūros lapas su žiniaraščiu (L-1 1500x1500, D-1 900x2100), „Monolitinis ziedas 190“, „Perdanga: g/b plokstes 220“. Senojo agento braižymas pakeistas stebėjimo funkcija – tikrinamas tik Planner įsakymas.
+
+| Nr. | Testas | Rezultatas | Pastaba |
+|---|---|---|---|
+| D1 | Vienas mygtukas „🧠 Agentai“ (be PDF taip pat), ⚙️ – viena vieta, senojo „🤖 Agentas“ mygtuko nebėra | ✅ PASISEKĖ | {"chip":"🧠 Agentai 🍼","vis":"block","oldCell":false,"cells":1} |
+| D2 | Mygtukas atidaro viską: Planner, Agentai, Braižytojas, Dokumentai, Kiekiai, Board, Pataisymai | ✅ PASISEKĖ | 📋 Planner · 🧩 Agentai · 🤖 Braižytojas · 📚 Dokumentai (0) · 📊 Kiekiai · 📡 Board · ✎ Pataisymai |
+| D3 | Pamatų agentas sukuria aukštą „Pamatai“, buvęs aukštas lieka „1 aukštas“ | ✅ PASISEKĖ | Pamatai / 1 aukštas · „Pamatai“: 4 išorės rostverkai, 2 vidiniai, 11 poliai – rodomi agentų sluoksnyje (pamatai.pdf 1 psl., kalibruotas pamatų lapas) |
+| D4 | „Pamatai“ nubraižyti programos sienų įrankiais: 4 išorės rostverkai 11/7 m, plotis 0,6, aukštis 0,5 (iš specifikacijos), be žiedo | ✅ PASISEKĖ | [[11,0.6,0.5,"noring","C"],[7,0.6,0.5,"noring","C"],[11,0.6,0.5,"noring","C"],[7,0.6,0.5,"noring","C"]] · tarpas 2.1929269894979962e-15 |
+| D5 | Vidiniai rostverkai – vidinėmis sienomis: 6,4 m ir 5,45 m, plotis 0,5 | ✅ PASISEKĖ | [[6.4,0.5],[5.45,0.5]] |
+| D6 | „Pamatai“ sulygiuoti su 1 aukštu (ašių kampai sutampa) | ✅ PASISEKĖ | didžiausias nuokrypis 0.00 mm |
+| D7 | Aukščiai: 1 aukšto ±0,00 = pamato viršus, „Pamatai“ – žemiau | ✅ PASISEKĖ | [-0.5,0] |
+| D8 | Pamatų agentas skaičiuoja nubraižytus „Pamatai“: plotas 27,525 m², betonas ≈ 13,76 m³ (programos skaičiavimas) | ✅ PASISEKĖ | [["Rostverkų ilgis (išorė – ašimis, vidus – tarp rostverkų)",47.85],["Rostverkų plotas",27.512],["Rostverkų betonas (programos skaičiavimas)",13.763],["Poliai Ø400",2],["Poliai □300",9],["Polių ilgis viso",70]] |
+| D9 | „Pamatai“ ↔ pamatų brėžinys: plotas ir vieta sutampa; 1 aukšto sienos ant rostverkų; patikrinta ir perduota | ✅ PASISEKĖ | „Pamatai“ ↔ pamatų brėžinys (pamatai.pdf 1 psl.): rostverkų plotas OK brėžinyje 27,53 m², nubraižyta 27,51 m² / „Pamatai“ sutampa su brėžiniu vietoje (kalibruotas pamatų lapas) OK visi 6 / „Pamatai“ po 1 aukšto išorinėmis sienomis OK visos 4 stovi ant rostverkų · {"ok":true,"same":true,"coord":"17 o |
+| D10 | Sienų agentas „Pamatai“ aukšto sienomis nelaiko | ✅ PASISEKĖ | objektų aukštai: 1 |
+| D11 | Planner moko braižytoją iš visų dokumentų (L-1 1,5, D-1 2,1, žiedas 0,19) | ✅ PASISEKĖ | Išmokė Planner iš projekto dokumentų: / L1: 1,50 × 1,50 (architektura.pdf 1 psl.) / D1: 0,90 × 2,10 (architektura.pdf 1 psl.) / žiedo aukštis 0,19 (architektura.pdf 1 psl.) |
+| D12 | Planner įsako braižytojui braižyti 1 aukštą jūsų atidarytame brėžinyje | ✅ PASISEKĖ | {"fl":1,"pdf":"architektura.pdf","page":1} |
+| D13 | Be jūsų pasirinkto brėžinio braižytojas nekviečiamas (piešimo lapą nurodote jūs) | ✅ PASISEKĖ | Brėžinys piešimui nepasirinktas – 📄 PDF: pasirinkite failą ir aukšto plano puslapį (jūs nurodote, ant ko piešti) |
+| D14 | Angų agentas įrašo trūkstamus matmenis pagal žymę (L-1 1,5×1,5), D-1 2,2 nekeičia | ✅ PASISEKĖ | [["L-1",1.5,1.5,"L"],["D-1",0.9,2.2,"M"]] · 1 angoms įrašyti matmenys iš žiniaraščio |
+| D15 | Sąramų agentas – sąrama angai be jos (iš braižytojo žinių), esamos nekeičia | ✅ PASISEKĖ | 1 angoms pridėta sąrama (iš braižytojo žinių) |
+| D16 | Žiedo agentas įrašo žiedo aukštį 0,19 iš dokumentų | ✅ PASISEKĖ | Žiedo aukštis 0,19 m (architektura.pdf 1 psl.) |
+| D17 | Perdangų agentas nustato perdangą: g/b plokštės 0,22 | ✅ PASISEKĖ | 1 perdangos (architektura.pdf 1 psl.: Perdanga: g/b plokstes 220) · {"type":"pre","pt":0.22} |
+| D18 | Agentų pakeitimus galima atšaukti ↶ | ✅ PASISEKĖ | {"n":9,"after":8} |
+| D19 | Kiekvienas agento veiksmas programoje registruojamas Board (ACTION) | ✅ PASISEKĖ | {"fnd":5,"open":1,"lint":1,"ring":1,"slab":1} |
+| D20 | Be pamatų brėžinio: „Pamatai“ – juostos po 1 aukšto sienų ašimis (b 0,5 × h 0,4) | ✅ PASISEKĖ | „Pamatai“: 4 išorės rostverkai, 0 vidiniai (pagal 1 aukštas laikančias sienas, b × h = 0,500 × 0,400 m (vartotojas)) · [[8.6,0.5,0.4],[5.6,0.5,0.4],[8.6,0.5,0.4],[5.6,0.5,0.4]] |
+| D21 | Braižytojas (senasis agentas) piešia tikrame architektūros brėžinyje | ⬜ NETESTUOTA | Testuota tik įsakymo perdavimas (agentRun pakeistas stebėjimo funkcija); jo braižymas spalvotame PDF – kaip anksčiau, netestuotas šiame teste |
 | E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |
