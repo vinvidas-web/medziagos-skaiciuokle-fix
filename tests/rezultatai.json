@@ -1,0 +1,212 @@
+[
+ {
+  "nr": 1,
+  "name": "Programa atsidaro be JavaScript klaidų",
+  "res": "PASISEKĖ",
+  "note": ""
+ },
+ {
+  "nr": 2,
+  "name": "Esamos funkcijos išliko (pavyzdys, kiekiai, 3D, nustatymai, Excel)",
+  "res": "PASISEKĖ",
+  "note": "{\"n\":8,\"area\":108.92596969619669,\"q\":93.18096969619668,\"rows\":true,\"xl\":513225,\"closed\":true}"
+ },
+ {
+  "nr": 3,
+  "name": "Galima įkelti kelis vieno projekto PDF",
+  "res": "PASISEKĖ",
+  "note": "arch.pdf: PIRMAS (pirmasis projekto dokumentas) | konstr.pdf: AUTO (adresas: senoliug.32; brėžinių numeriai: SRBS32-01; bendri žodžiai: projektas, gyvenamasis, namas, senoliu)"
+ },
+ {
+  "nr": 4,
+  "name": "Tikrinama dokumentų priklausomybė projektui",
+  "res": "PASISEKĖ",
+  "note": "kitas projektas: ATMESTA – adresas skiriasi nuo kitų dokumentų"
+ },
+ {
+  "nr": 5,
+  "name": "Analizuojami visi PDF puslapiai",
+  "res": "PASISEKĖ",
+  "note": "arch.pdf 3 psl.; iš viso projekte 4 psl. (atmestas dokumentas neįtrauktas)"
+ },
+ {
+  "nr": 6,
+  "name": "Analizuojami reikšmingi informaciniai laukai",
+  "res": "PASISEKĖ",
+  "note": "{\"title\":\"1 AUKSTO PLANAS M 1:100\",\"no\":[\"SRBS32-01-TDP-SA-01\"],\"rev\":\"0\",\"scale\":100,\"dims\":[12000,8000],\"axes\":[\"A\",\"B\",\"1\",\"2\"],\"marks\":[\"L-1\",\"D-1\",\"SA-01\"],\"elev\":[0],\"mat\":[\"keramzitbetonio\"],\"addr\":[\"Senoliu g. 32\"],\"kinds\":[\"walls\"]}"
+ },
+ {
+  "nr": 7,
+  "name": "Agentai gali naudoti skirtingų PDF informaciją",
+  "res": "PASISEKĖ",
+  "note": "kandidatai: 600x400 konstr.pdf p.1"
+ },
+ {
+  "nr": "7a",
+  "name": "Planner paleidžia tik reikalingus agentus (pamatams – Sienų + Pamatų)",
+  "res": "PASISEKĖ",
+  "note": "walls:reikia agentui Pamatų agentas | fnd:užsakyta"
+ },
+ {
+  "nr": "7b",
+  "name": "Trūkstami matmenys neišgalvojami (pamato skerspjūvis → NEEDS_DATA)",
+  "res": "PASISEKĖ",
+  "note": "Pamato skerspjūvis (plotis × aukštis) nepatvirtintas – dokumentuose rasta: 600×400 (konstr.pdf 1 psl.). Įveskite arba patvirtinkite – spėjimas nenaudojamas."
+ },
+ {
+  "nr": 8,
+  "name": "Aptinkami prieštaringi dokumentų duomenys",
+  "res": "PASISEKĖ",
+  "note": "Prieštaravimas: L-1 modelyje 1,20×1,50, arch.pdf 2 psl. – 1,50×1,50 (nesirenkama automatiškai)"
+ },
+ {
+  "nr": 9,
+  "name": "Veikia skenuotų PDF analizė",
+  "res": "NETESTUOTA",
+  "note": "Skenuotas PDF priimamas ir pažymimas „NEPERSKAITYTA“ (teksto sluoksnio nėra), tačiau OCR atpažinimas neįdiegtas – turinys neanalizuojamas"
+ },
+ {
+  "nr": 10,
+  "name": "Veikia nuotraukų analizė",
+  "res": "NETESTUOTA",
+  "note": "Nuotrauka priimama ir rodoma kaip anksčiau, pažymima „neperskaityta“; vaizdo atpažinimas (ašys, matmenys) neįdiegtas"
+ },
+ {
+  "nr": 11,
+  "name": "Nustatomos ir tikrinamos pastato ašys",
+  "res": "NETESTUOTA",
+  "note": "Ašių žymių kandidatai išrenkami iš teksto (A B 1 2), bet ašių linijų geometrija ir jų tarpusavio padėtis netikrinama"
+ },
+ {
+  "nr": 12,
+  "name": "Tikrinamas mastelis",
+  "res": "NETESTUOTA",
+  "note": "Mastelis M 1:100 perskaitomas iš teksto (kalibracija – esama 📏 funkcija); automatinis mastelio patikrinimas pagal matmenų grandinę neįgyvendintas"
+ },
+ {
+  "nr": 13,
+  "name": "Tikrinami matmenys (dviguba patikra: formulė ↔ koordinatės)",
+  "res": "PASISEKĖ",
+  "note": "didžiausias skirtumas 0,0 mm"
+ },
+ {
+  "nr": 14,
+  "name": "Veikia Board pranešimai",
+  "res": "PASISEKĖ",
+  "note": "62 pranešimų; tipai WARNING,TASK,RESULT,REPORT,QUERY"
+ },
+ {
+  "nr": 15,
+  "name": "Agentai gauna Planner užduotis",
+  "res": "PASISEKĖ",
+  "note": "TASK pranešimai visiems 6"
+ },
+ {
+  "nr": 16,
+  "name": "Agentai negali keisti vienas kito duomenų",
+  "res": "PASISEKĖ",
+  "note": "{\"write\":\"atmesta\",\"after\":12,\"frozen\":true}"
+ },
+ {
+  "nr": 17,
+  "name": "Planner aptinka konfliktus",
+  "res": "PASISEKĖ",
+  "note": "Tą patį objektą f0:o0 skelbia du agentai"
+ },
+ {
+  "nr": 18,
+  "name": "Planner grąžina klaidingus rezultatus taisyti",
+  "res": "PASISEKĖ",
+  "note": "{\"cr\":1,\"corrected\":true,\"state\":\"NEEDS_REVIEW\",\"done\":false}"
+ },
+ {
+  "nr": 19,
+  "name": "Geometrija perduodama į pagrindinį langą (įrašyta, atvaizduojama)",
+  "res": "PASISEKĖ",
+  "note": "walls: OK [11 / 11 nupiešta, 11 matoma pikseliuose] | fnd: OK [9 / 9 nupiešta, 9 matoma pikseliuose] | open: OK [8 / 8 nupiešta, 8 matoma pikseliuose] | lint: OK [7 / 7 nupiešta, 7 matoma pikseliuose] | ring: OK [8 / 8 nupiešta, 8 matoma pikseliuose] | slab: OK [nėra ką piešti]"
+ },
+ {
+  "nr": 20,
+  "name": "Patikrinamas perduotų koordinačių tikslumas",
+  "res": "PASISEKĖ",
+  "note": "walls: 11 obj. patikrinta, didžiausias nuokrypis 0,00 mm | fnd: 9 obj. patikrinta, didžiausias nuokrypis 0,00 mm | open: 8 obj. patikrinta, didžiausias nuokrypis 0,00 mm | lint: 7 obj. patikrinta, didžiausias nuokrypis 0,00 mm | ring: 8 obj. patikrinta, didžiausias nuokrypis 0,00 mm | slab: 0 obj. patikrinta, didžiausias nuokrypis 0,00 mm"
+ },
+ {
+  "nr": "20a",
+  "name": "Rezultatai matomi pagrindinio lango drobėje (žiedo pikselis)",
+  "res": "PASISEKĖ",
+  "note": "RGBA [104,136,176,255]"
+ },
+ {
+  "nr": "20b",
+  "name": "„Užbaigta“ rodoma tik patikrintiems ir perduotiems rezultatams",
+  "res": "PASISEKĖ",
+  "note": "neužbaigti: fnd:NEEDS_DATA"
+ },
+ {
+  "nr": 23,
+  "name": "Pataisymai registruojami (ir agentas perskaičiuoja)",
+  "res": "PASISEKĖ",
+  "note": "{\"st\":\"COMPLETED\",\"v\":{\"floor\":0,\"name\":\"Pamatų betonas\",\"unit\":\"m³\",\"v\":11.171600000000002},\"L\":55.858000000000004,\"n\":2}"
+ },
+ {
+  "nr": "23a",
+  "name": "Vartotojo patvirtinti duomenys apsaugoti (nauja versija laukia sprendimo)",
+  "res": "PASISEKĖ",
+  "note": "{\"n\":11,\"st\":\"APPROVED\",\"pending\":true,\"req\":1}"
+ },
+ {
+  "nr": 21,
+  "name": "Projektas išsaugomas",
+  "res": "PASISEKĖ",
+  "note": "{\"pid\":\"prj_mvlely35dyucy\",\"h\":\"ipp9hr\",\"docs\":4,\"saved\":true,\"log\":174}"
+ },
+ {
+  "nr": 22,
+  "name": "Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija)",
+  "res": "PASISEKĖ",
+  "note": "{\"pid\":\"prj_mvlely35dyucy\",\"h\":\"ipp9hr\",\"docs\":4,\"idx\":5,\"log\":174,\"st\":\"COMPLETED\"}"
+ },
+ {
+  "nr": "22a",
+  "name": "Projekto failas (💾 .json) išsaugo ir atkuria agentų duomenis",
+  "res": "PASISEKĖ",
+  "note": ""
+ },
+ {
+  "nr": 24,
+  "name": "Naujas PDF inicijuoja reikalingas pakartotines patikras",
+  "res": "PASISEKĖ",
+  "note": "pakeitimai: [{\"no\":\"SRBS32-01-TDP-SK-01\",\"rev\":\"0 → 1\",\"add\":[12500]}]; pertikrinti: fnd"
+ },
+ {
+  "nr": "24a",
+  "name": "Pakeistos redakcijos puslapis nebenaudojamas (rostverkas 500, ne 600)",
+  "res": "PASISEKĖ",
+  "note": "kandidatai: 500"
+ },
+ {
+  "nr": 25,
+  "name": "Vieno agento klaida nesugadina kitų agentų duomenų",
+  "res": "PASISEKĖ",
+  "note": "{\"lint\":\"FAILED\",\"ring\":\"COMPLETED\",\"walls\":true,\"same\":true}"
+ },
+ {
+  "nr": "P",
+  "name": "Perdangų agentas (5 aukštų pavyzdys)",
+  "res": "PASISEKĖ",
+  "note": "{\"st\":\"COMPLETED\",\"n\":179,\"q\":11,\"checks\":\"OK,OK,OK,OK,OK,OK,OK,OK\",\"fl\":5}"
+ },
+ {
+  "nr": "UI",
+  "name": "Langai: Planner, Agentai, Dokumentai, Kiekiai, Board, Pataisymai; įkėlimas per mygtuką",
+  "res": "PASISEKĖ",
+  "note": "{\"planner\":true,\"agents\":true,\"docs\":true,\"qty\":true,\"board\":true,\"kor\":true} arch.pdf:PIRMAS"
+ },
+ {
+  "nr": "E",
+  "name": "Per visą testą nebuvo JavaScript klaidų",
+  "res": "PASISEKĖ",
+  "note": ""
+ }
+]

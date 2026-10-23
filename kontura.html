@@ -3039,7 +3039,7 @@ async function pdfLoadFile(f, quiet) {
             const cv = document.createElement('canvas'), sc = Math.min(1, 4000 / Math.max(im.width, im.height)); cv.width = Math.round(im.width * sc); cv.height = Math.round(im.height * sc);
             cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
             PDFU = { file: f, doc: null, name: f.name, n: 1, page: 1, cv, W: im.width * 0.75, H: im.height * 0.75, segs: new Float32Array(0), grid: new Map(), scaleN: 0 };
-            pdfBusy = false; pdfCfg().name = f.name; requestDraw(); if (!quiet) pdfAfterLoad(); return;
+            pdfBusy = false; pdfCfg().name = f.name; requestDraw(); if (!quiet) { pdfAfterLoad(); try { KS.Docs.registerFromViewer(f); } catch (e) { } } return;
         }
         const lib = await pdfLib(), data = new Uint8Array(await f.arrayBuffer());
         let doc; try { doc = await lib.getDocument({ data, isEvalSupported: false }).promise; }
@@ -3049,6 +3049,7 @@ async function pdfLoadFile(f, quiet) {
         const want = pdfCfg().fl[project.fl || 0];
         if (doc.numPages === 1) await pdfLoadPage(1, quiet); else if (want && want <= doc.numPages) await pdfLoadPage(want, quiet); else if (quiet) await pdfLoadPage(1, true); else pdfPagePicker();
         if (pdfFx('zin')) setTimeout(pdfZinScan, 1500);
+        if (!quiet) try { KS.Docs.registerFromViewer(f); } catch (e) { }
     } catch (e) { pdfBusy = false; if (!quiet) showToast('Nepavyko atidaryti: ' + (e && e.message ? e.message : e), 4000); }
 }
 async function pdfPagePicker() {
@@ -3154,8 +3155,8 @@ function openPdfMenu() {
     if (!PDFU || !PDFU.cv) {
         openSubpanel('📄 PDF brėžinys', `<div class="f-note" style="font-size:15px">Įkelkite projekto PDF (arba brėžinio nuotrauką). Brėžinys bus rodomas <b>po planu</b> – sienas, pertvaras ir angas brėšite bakstelėdami ant jo, o ilgiai įsirašys patys.</div>
           <div class="f-note">Eiga: 1) pasirinkite puslapį su aukšto planu, 2) patikrinkite mastelį, 3) bakstelėkite išorinius mūro kampus iš eilės, 4) pertvaros, 5) angos. Kiekius skaičiuoja kaip visada.</div>
-          <div class="f-btns"><button class="f-btn pri" id="fP">📂 Pasirinkti PDF</button><button class="f-btn" id="fX">Uždaryti</button></div>`, sp => {
-            sp.querySelector('#fP').onclick = pdfOpenFile; sp.querySelector('#fX').onclick = closeSubpanel; });
+          <div class="f-btns"><button class="f-btn pri" id="fP">📂 Pasirinkti PDF</button><button class="f-btn" id="fD">📚 Keli projekto PDF</button><button class="f-btn" id="fX">Uždaryti</button></div>`, sp => {
+            sp.querySelector('#fP').onclick = pdfOpenFile; sp.querySelector('#fD').onclick = () => KS.open('docs'); sp.querySelector('#fX').onclick = closeSubpanel; });
         return;
     }
     const u = pdfCfg(), c = pdfCal(), st = c.ok ? '✔ ' + (c.how || ('M 1:' + Math.round(c.mpp / (0.0254 / 72)))) : '⚠ nepatikrintas';
@@ -3171,6 +3172,7 @@ function openPdfMenu() {
         ${B('fOp', '🪟 Angos', (pdfFx('op1') ? 'bakstelėkite angos vidurį (vienas bakstelėjimas) arba 2 kraštus' : 'bakstelėkite angos kraštus (2 taškai)') + ' – plotis ir vieta įsirašo' + (pdfFx('zin') ? ', aukštis pagal žymę' : ', aukštį įrašysite'), false)}
         ${B('fAl', '🎯 Sulygiuoti su esamu kontūru', 'jei sienos jau įvestos: bakstelėkite brėžinyje k1, paskui k2', false)}
         ${pdfFx('tikr') ? B('fChk', '📐 Patikra pagal brėžinį', 'visų sienų ilgiai palyginami su brėžinyje parašytais matmenimis', false) : ''}
+        ${B('fDocs', '📚 Visi projekto dokumentai · 🧠 agentai', 'keli to paties projekto PDF – indeksuojami visi puslapiai; 6 agentai + Planner', false)}
         ${B('fFx', '⚙ Funkcijos (įj. / išj.)', pdfFxList().filter(q => pdfFx(q[0])).length + ' iš ' + pdfFxList().length + ' įjungta – lupa, patikra, vienu bakstelėjimu, automatinis kontūras…', false)}
       </div>
       ${pdfFxMenuHtml()}
@@ -3180,7 +3182,7 @@ function openPdfMenu() {
         sp.querySelector('#fCal').onclick = () => pdfStart('cal');
         sp.querySelector('#fOut').onclick = () => pdfStart('out');
         const fa = sp.querySelector('#fAuto'); if (fa) fa.onclick = () => { if (project.walls.length) { showToast('Sienos jau yra – automatinis kontūras tik tuščiam projektui (🆕 naujas)', 3200); return; } pdfStart('auto'); };
-        const fc = sp.querySelector('#fChk'); if (fc) fc.onclick = pdfCheckDialog; sp.querySelector('#fFx').onclick = pdfFxDialog; sp.querySelector('#fAg').onclick = openAgent; const fao = sp.querySelector('#fAllOp'); if (fao) fao.onclick = () => { closeSubpanel(); pdfFindAllOpenings(); }; pdfFxMenuBind(sp);
+        const fc = sp.querySelector('#fChk'); if (fc) fc.onclick = pdfCheckDialog; sp.querySelector('#fFx').onclick = pdfFxDialog; sp.querySelector('#fDocs').onclick = () => KS.open('docs'); sp.querySelector('#fAg').onclick = openAgent; const fao = sp.querySelector('#fAllOp'); if (fao) fao.onclick = () => { closeSubpanel(); pdfFindAllOpenings(); }; pdfFxMenuBind(sp);
         sp.querySelector('#fIn').onclick = () => { if (!project.closed) { showToast('Pirmiausia uždarykite išorės kontūrą', 2600); return; } pdfStart('in'); };
         sp.querySelector('#fOp').onclick = () => { if (!project.walls.length) { showToast('Pirmiausia nubrėžkite sienas', 2400); return; } pdfStart('op'); };
         sp.querySelector('#fAl').onclick = () => { if (!R || !R.n) { showToast('Kontūro dar nėra – pradėkite „Išorės sienos“', 2600); return; } pdfStart('al'); };
@@ -4424,6 +4426,7 @@ function fixProject(p) {
             return o; });
         q.fl = fl;
     }
+    if (p.ks && typeof KS !== 'undefined') { const k = KS.sanitize(p.ks); if (k) q.ks = k; }
     return q;
 }
 function normDir(v) { let d = (Number(v) || 0) % 360; if (d < 0) d += 360; return d; } // tiksliai (be 360 pridėjimo teigiamoms)
@@ -4918,6 +4921,8 @@ function rowsSettings() {
         { num: '🆕', txt: 'naujas', act: confirmNew },
         { num: '📐', txt: 'pavyzdys', act: loadExample }, { num: '🏢', txt: '5 aukštų pavyzdys', act: loadExample5 }, { num: '📄', txt: 'PDF brėžinys', cls: 'on', act: openPdfMenu }, { num: '🤖', txt: 'Agentas', cls: 'on', act: openAgent }
     ]);
+    rows.push([{ num: '🧠', txt: 'Agentai 6 + Planner', cls: 'on', act: () => KS.open('planner') }, { num: '📚', txt: 'projekto dokumentai (keli PDF)', cls: 'on', act: () => KS.open('docs') },
+        { num: '📊', txt: 'kiekių suvestinė', act: () => KS.open('qty') }, { num: '📡', txt: 'Board diagnostika', act: () => KS.open('board') }]);
     rows.push([
         { num: esc(project.name), txt: 'objekto pavadinimas', cls: 'span2 wide', act: editName },
         { num: s.excelType === 'Siena su monolitiniu žiedu' ? 'su žiedu' : (s.excelType === 'Siena be monolitinio žiedo' ? 'be žiedo' : 'tik žiedas'), txt: 'Excel sienos tipas', cls: 'wide',
@@ -5486,6 +5491,7 @@ function showHelp() {
       <h4>Angos, sąramos, žiedas</h4><p>Angą pridėsite: sienos lange („＋ Anga“), vaizde iš šono (mygtukas ＋) arba A sąraše. Įrašykite plotį, aukštį, kiekį ir sąramą (montuojama / liejama, užlaidos kairėje ir dešinėje, aukštis). Skaičiuojama kaip Excel: angų plotas, mūro darbo kvadratūra pagal angų taisyklę (iki 3 m² neatimama, 3–6 m² – pusė, virš 6 m² – visa), tūriai, sąramų ilgiai ir tūriai. Vieta ir apačia nuo grindų – tik piešiniui.</p>
       <p>Sienos tipas (sienos lange): su žiedu / be žiedo / tik žiedas. Žiedo aukštis – ⚙️ (bendras) arba sienos lange; plotis – pagal storį, ilgis – pagal sienos centrą, jei neįrašyta kitaip. Jei įrašytas žiedo ilgis trumpesnis už sieną – žiedas piešiamas tik tiek; „Žiedo vieta“ – atstumas nuo sienos pradžios (kampo k) iki žiedo. Žiedo galai statūs (90°).</p><p><b>Kampai:</b> kaip mūre – viena siena eina per visą kampą, kita į ją atsiremia stačiu kampu. Per kampą eina aukštesnė siena (su žiedu); kai aukščiai vienodi – ankstesnė siena. Rezultatai – ℹ️, į Excel failą viskas perkeliama (angos – stulpeliai X–AL, žiedas – AO–AR).</p>
       <h4>🏢 Aukštai</h4><p>Mygtukas „🏢“ (dešinėje, po būsena). „+ Pridėti aukštą“ – nukopijuoja viršutinį aukštą (kontūras, sienos, pertvaros, angos) ir uždeda viršuje; paskui taisote, ką reikia. Bakstelėjus aukštą – jis rodomas ir taisomas. Aukšto ±0,00 = žemiau esančio aukšto sienų viršus + žiedas + perdangos storis (įrašomas „🏢“ lange). 3D matomi visi aukštai (aukštesni už rodomą – permatomi). Excel – atskiras failas kiekvienam aukštui (failo pavadinime – aukštas). Ataskaitoje – aukštų suvestinė, bendra suma ir kiekvieno aukšto kiekiai bei sienų vaizdai.</p>
+      <h4>🧠 Agentai 6 + Planner</h4><p>⚙️ → „🧠 Agentai“: 📚 Dokumentai – įkelkite kelis to paties projekto PDF (indeksuojami visi puslapiai), ▶ Planner – Pamatų, Sienų, Angų, Sąramų, Žiedo ir Perdangų agentai analizuoja projektą, rezultatai patikrinami ir perkeliami į planą. Objekto kilmė – paspaudus jį sąraše. Pamatų skerspjūvį patvirtinate jūs – spėjimas nenaudojamas.</p>
       <h4>🔴 Architektinis ±0,00</h4><p>⚙️ → „🔴 arch. ±0,00“ (arba 🏢 lange): įrašykite, kiek švarių grindų ±0,00 aukščiau pamato viršaus (pvz. 0,15). Raudona linija – architektinis ±0,00 (3D, vaizdai iš šono, ataskaita), mėlyna – mūro 0 (pamato viršus). Mūro kiekiams įtakos neturi.</p>
       <h4>🧱 Perdangos</h4><p>„🏢“ lange – rudas mygtukas „🧱 Tarp 1 ir 2 a.“. Pasirinkimas: be perdangos, medinė (sijos: plotis, aukštis, žingsnis, įleidimas, paklotas), monolitinė (storis), surenkamos g/b plokštės (storis, plotis, atrama). Medinei ir plokštėms – „🧱 Pažymėti laikančias sienas“: bakstelėkite apatinio aukšto sienas (ir pertvaras), ant kurių remiasi (ruda), „✔ Baigti“. Arba sienos lange (bakstelėkite sieną du kartus) viršuje: „🧱 Ar ant šios sienos remiasi perdanga?“ → „Taip – laikanti“. Sijos / plokštės eina skersai laikančių sienų; kur sveikos plokštės netelpa – monolitinis intarpas. Kito aukšto ±0,00: medinė – sienos viršus + žiedas + sija + paklotas; monolitinė ir plokštės – sienos viršus + didesnis iš (žiedas, perdanga). Žiedus / pusžiedžius įvedate sienoms patys. Kiekiai – ℹ️ ir ataskaitoje; 3D matoma kiekviena sija / plokštė.</p>
       <h4>📏 Perimetrai</h4><p>Atskiras vaizdas: <b>Iš</b> – išorinis kontūro perimetras, <b>C</b> – centras (kontūras + pertvaros), <b>V</b> – vidus: kontūro vidinis perimetras ir abiejų pertvarų kraštų ilgiai. Prie kiekvienos atkarpos – jos ilgis, apačioje – sumos. „Be sandūrų“ – atėmus vietas, kur pertvara remiasi į sieną (tiek paviršiaus lieka, pvz., tinkui). Tie patys skaičiai – ℹ️.</p>
@@ -6162,7 +6168,7 @@ function draw() {
     ctx.fillStyle = '#eef1f4'; ctx.fillRect(0, 0, innerWidth, innerHeight);
     if (view3d && R && R.n) draw3d(ctx, innerWidth, innerHeight);
     else if (sideView && curSide()) drawSideArch(ctx, innerWidth, innerHeight);
-    else drawScene(ctx, innerWidth, innerHeight, view, 1, false);
+    else { drawScene(ctx, innerWidth, innerHeight, view, 1, false); try { KS.drawOverlay(ctx, view); } catch (e) { } }
     updateViewChip();
 }
 /* =========================================================
@@ -7126,12 +7132,737 @@ function updateStatus() {
 }
 
 /* =========================================================
+   AGENTŲ SISTEMA (KS): Kit · Board · Agent · 6 specialistai · Planner · projekto dokumentai
+   Pagal specifikaciją „KONTŪRAS – agentų architektūra V2/V3“.
+   Esamas skaičiavimo variklis (Geo / XL / Bridge) nekeičiamas: agentai jį naudoja kaip bendrą
+   projekto modelį, savo rezultatus skelbia tik per Board, o į projektą (pagrindinį langą) juos
+   perkelia ir patikrina Planner. Agentai tarpusavyje tiesiogiai nekalba.
+   ========================================================= */
+const KS = (() => {
+    const AGENT_IDS = ['fnd', 'walls', 'open', 'lint', 'ring', 'slab'];
+    const ST_TXT = { IDLE: 'laukia', WORKING: 'analizuoja', NEEDS_DATA: 'trūksta duomenų', NEEDS_REVIEW: 'reikia patikros', COMPLETED: 'atlikta', FAILED: 'nepavyko' };
+    const OBJ_TXT = { DETECTED: 'aptikta', PROPOSED: 'preliminaru', VERIFIED: 'patikrinta', APPROVED: 'patvirtinta' };
+    const MSG_TYPES = ['TASK', 'RESULT', 'QUERY', 'REPORT', 'WARNING', 'ERROR', 'CORRECTION_REQUEST', 'APPROVAL_REQUEST'];
+
+    /* ---------- KIT: bendros funkcijos visiems agentams (sprendimų nepriima) ---------- */
+    const Kit = {
+        uid: p => p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        clone: o => (o == null ? o : JSON.parse(JSON.stringify(o))),
+        freeze(o) { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); Object.values(o).forEach(Kit.freeze); } return o; },
+        r3: x => Math.round(x * 1000) / 1000,
+        dist: (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]),
+        angle: (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI,
+        lerp: (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f],
+        polyLen(pts, closed) { let s = 0; for (let i = 1; i < pts.length; i++) s += Kit.dist(pts[i - 1], pts[i]); if (closed && pts.length > 2) s += Kit.dist(pts[pts.length - 1], pts[0]); return s; },
+        polyArea(pts) { let s = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += a[0] * b[1] - b[0] * a[1]; } return Math.abs(s / 2); },
+        near: (a, b, tol) => Math.abs(a - b) <= tol,
+        hash(s) { s = String(s); let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); },
+        // brėžinio (PDF taškai) ⇄ statinio (m) koordinatės – ta pati transformacija kaip pagrindiniame lange
+        pdfToWorld: (p, cal) => P2W(p, cal),
+        worldToPdf: (w, cal) => W2P(w, cal),
+        parseDim(s) { const t = String(s).replace(/\s/g, ''); return /^\d{3,5}$/.test(t) ? { mm: Number(t), m: Number(t) / 1000 } : null; },
+        parseElev(s) { const m = String(s).match(/([±+\-−])\s?(\d{1,2}[.,]\d{3})/); if (!m) return null; const v = Number(m[2].replace(',', '.')); return m[1] === '-' || m[1] === '−' ? -v : (m[1] === '±' ? 0 : v); },
+        parseScale(s) { const m = String(s).match(/M\s*1\s*:\s*(\d{1,4})/i); return m ? Number(m[1]) : 0; },
+        fmtQ: (x, d) => fmt(x, d),
+        // puslapio teksto laukai: ką perskaitėme patikimai, ką – tik kaip kandidatus
+        KINDS: { fnd: /pamat|rostverk|poli[ųa]\b|gręžtin/i, walls: /sien|mūr|pertvar|blokel|aukšto planas/i, open: /\blang|dur[ųy]|ang[ųa]|žiniarašt/i, lint: /sąram/i,
+            ring: /žied|monolitin\w* juost/i, slab: /perdang|plokšt|kiaurymėt/i, section: /pjūv|fasad/i, detail: /mazg|detal/i, spec: /specifikac|žiniarašt|kiekių/i },
+        KIND_TXT: { fnd: 'pamatai', walls: 'sienos', open: 'angos', lint: 'sąramos', ring: 'žiedai', slab: 'perdangos', section: 'pjūviai / fasadai', detail: 'mazgai', spec: 'specifikacijos' },
+        analyzeText(items) {
+            const rows = {}; items.forEach(it => { const y = Math.round(it.y / 4); (rows[y] = rows[y] || []).push(it); });
+            const lines = Object.keys(rows).map(Number).sort((a, b) => a - b).map(y => rows[y].sort((a, b) => a.x - b.x).map(i => i.s).join(' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
+            const all = lines.join('\n'), tok = items.map(i => i.s.trim());
+            const uniq = a => [...new Set(a)];
+            const f = { nItems: items.length, read: items.length === 0 ? 'NEPERSKAITYTA' : (items.length < 15 ? 'MAŽAI' : 'TEKSTAS'), lines: lines.slice(0, 400) };
+            f.title = (lines.find(l => /\b(planas|pjūvis|fasadas|mazgas|specifikacija|žiniaraštis|schema)\b/i.test(l) && l.length < 90) || '').slice(0, 90);
+            f.drawingNos = uniq((all.match(/\b[A-ZĄČĘĖĮŠŲŪŽ0-9]{2,}(?:-[A-ZĄČĘĖĮŠŲŪŽ0-9]{1,8}){2,}\b/g) || [])).slice(0, 12);
+            { const m = all.match(/\b(laida|rev\.?|redakcija|leid\.)\s*[:.]?\s*([A-Z0-9]{1,3})\b/i); f.rev = m ? m[2].toUpperCase() : ''; }
+            f.scale = Kit.parseScale(all);
+            f.dims = uniq(tok.map(t => Kit.parseDim(t)).filter(Boolean).map(d => d.mm)).slice(0, 300);
+            f.elev = uniq((all.match(/[±+\-−]\s?\d{1,2}[.,]\d{3}/g) || []).map(Kit.parseElev).filter(v => v != null)).slice(0, 60);
+            f.marks = uniq((all.match(/\b(?:LD|L|D|SĄ|SA|S|Ž|ŽS|P|PL|PP|F|R|RV|K)\s?-\s?\d{1,3}[a-z]?\b/g) || []).map(s => s.replace(/\s/g, '').toUpperCase())).slice(0, 120);
+            f.axes = uniq(tok.filter(t => /^([A-HJ-NP-ZĄČĘĖ]|[1-9]\d?)$/.test(t))).slice(0, 40);
+            f.materials = uniq((all.match(/\bC\d{2}\/\d{2}\b|\bB500[A-C]?\b|keramzit\w*|silikat\w*|gelžbeton\w*|akyt\w* betono/gi) || []).map(s => s.toLowerCase())).slice(0, 20);
+            f.address = uniq((all.match(/[A-ZĄČĘĖĮŠŲŪŽ][a-ząčęėįšųūž]+\s+g\.\s*\d+[A-Za-z]?/g) || [])).slice(0, 5);
+            f.refs = uniq((all.match(/\b(?:žr\.|žiūr\.)\s*[^\s,;]+/gi) || [])).slice(0, 20);
+            f.sizes = uniq((all.match(/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/g) || []).map(s => s.replace(/\s/g, '').replace('×', 'x'))).slice(0, 60);
+            f.kinds = Object.keys(Kit.KINDS).filter(k => Kit.KINDS[k].test(all));
+            f.projectWords = uniq((lines.filter(l => /projekt|objekt|statyb|gyvenam/i.test(l)).join(' ').toLowerCase().match(/[a-ząčęėįšųūž]{5,}/g) || [])).slice(0, 40);
+            return f;
+        },
+        // dokumento parašas – projekto priklausomybei tikrinti
+        signature(pages) {
+            const s = { addr: new Set(), pref: new Set(), words: new Set() };
+            pages.forEach(p => { (p.address || []).forEach(a => s.addr.add(a.toLowerCase().replace(/\s/g, ''))); (p.drawingNos || []).forEach(d => s.pref.add(d.split('-').slice(0, 2).join('-')));
+                (p.projectWords || []).forEach(w => s.words.add(w)); });
+            return { addr: [...s.addr], pref: [...s.pref], words: [...s.words] };
+        },
+        sigMatch(a, b) {
+            const inter = (x, y) => x.filter(v => y.includes(v));
+            const addr = inter(a.addr, b.addr), pref = inter(a.pref, b.pref), words = inter(a.words, b.words);
+            const ev = []; if (addr.length) ev.push('adresas: ' + addr.join(', ')); if (pref.length) ev.push('brėžinių numeriai: ' + pref.join(', ')); if (words.length >= 3) ev.push('bendri žodžiai: ' + words.slice(0, 6).join(', '));
+            const conflict = a.addr.length && b.addr.length && !addr.length;
+            return { ok: !conflict && (addr.length > 0 || pref.length > 0 || words.length >= 3), conflict: !!conflict, ev };
+        }
+    };
+
+    /* ---------- būsena projekte (project.ks) ---------- */
+    function ks() {
+        if (!project.ks || typeof project.ks !== 'object') project.ks = {};
+        const k = project.ks;
+        if (!k.pid) k.pid = Kit.uid('prj');
+        ['docs', 'corrections', 'approvals', 'hist'].forEach(x => { if (!Array.isArray(k[x])) k[x] = []; });
+        ['results', 'stale', 'input', 'agents'].forEach(x => { if (!k[x] || typeof k[x] !== 'object') k[x] = {}; });
+        return k;
+    }
+    function sanitize(p) { // fixProject: tik žinomi laukai, ribojami dydžiai
+        if (!p || typeof p !== 'object') return undefined;
+        const arr = (v, n) => (Array.isArray(v) ? v.slice(-n) : []), obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+        try { return JSON.parse(JSON.stringify({ pid: String(p.pid || '').slice(0, 40) || Kit.uid('prj'), docs: arr(p.docs, 60), corrections: arr(p.corrections, 500), approvals: arr(p.approvals, 500), hist: arr(p.hist, 10),
+            results: obj(p.results), stale: obj(p.stale), input: obj(p.input), agents: obj(p.agents), plan: p.plan && typeof p.plan === 'object' ? p.plan : undefined, show: p.show !== false, want: Array.isArray(p.want) ? p.want.filter(x => AGENT_IDS.includes(x)) : undefined, layer: AGENT_IDS.includes(p.layer) ? p.layer : '' })); }
+        catch (e) { return undefined; }
+    }
+    function modelHash() { // kas svarbu agentams: visi aukštai, sienos, angos, nustatymai, agentų įvesti duomenys
+        const fl = floorCount() > 1 ? project.floors.map((f, k) => (k === project.fl ? floorExtract() : floorKeys().reduce((o, x) => (o[x] = f[x], o), {}))).map((d, k) => ({ d, sl: project.floors[k].sl })) : [floorExtract()];
+        return Kit.hash(JSON.stringify([fl, agentState().settings, ks().input]));
+    }
+
+    /* ---------- IndexedDB: dokumentų failai, puslapių indeksas, Board istorija ---------- */
+    let dbP = null;
+    function idb() { if (!dbP) dbP = new Promise((ok, bad) => { try { const r = indexedDB.open('kontura_ks', 1); r.onupgradeneeded = () => { ['blobs', 'idx', 'board'].forEach(s => r.result.createObjectStore(s)); }; r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); } catch (e) { bad(e); } }); return dbP; }
+    async function idbPut(st, key, val) { try { const db = await idb(); await new Promise((ok, bad) => { const tx = db.transaction(st, 'readwrite'); tx.objectStore(st).put(val, key); tx.oncomplete = ok; tx.onerror = () => bad(tx.error); }); return true; } catch (e) { return false; } }
+    async function idbGet(st, key) { try { const db = await idb(); return await new Promise(ok => { const q = db.transaction(st).objectStore(st).get(key); q.onsuccess = () => ok(q.result); q.onerror = () => ok(undefined); }); } catch (e) { return undefined; } }
+    async function idbDel(st, key) { try { const db = await idb(); await new Promise(ok => { const tx = db.transaction(st, 'readwrite'); tx.objectStore(st).delete(key); tx.oncomplete = ok; tx.onerror = ok; }); } catch (e) { } }
+
+    /* ---------- BOARD: paštas ir lenta (skelbia, duoda kopijas, registruoja; sprendimų nepriima) ---------- */
+    const Board = {
+        data: {}, log: [], conflicts: [], claims: {}, reads: 0,
+        msg(type, from, to, taskId, content, status) {
+            const m = { id: Kit.uid('msg'), pid: ks().pid, from, to, type, taskId: taskId || '', ver: content && content.ver || 0, t: Date.now(), content: content || {}, status: status || 'OK' };
+            Board.log.push(Kit.freeze(m)); if (Board.log.length > 3000) Board.log.splice(0, Board.log.length - 3000);
+            Board.dirty = true; return m;
+        },
+        publish(agentId, topic, value, meta) {
+            if (typeof topic !== 'string' || topic.split('.')[0] !== agentId) { // agentas negali rašyti į svetimą sritį
+                Board.msg('ERROR', agentId, 'planner', meta && meta.taskId, { text: 'Draudžiama: „' + agentId + '“ bandė rašyti į „' + topic + '“' }, 'ATMESTA');
+                throw new Error('Board: ' + agentId + ' neturi teisės rašyti į ' + topic);
+            }
+            const prev = Board.data[topic], ver = (prev ? prev.ver : 0) + 1, val = Kit.clone(value);
+            const rec = Kit.freeze({ topic, ver, by: agentId, t: Date.now(), taskId: meta && meta.taskId || '', model: meta && meta.model || '', hash: Kit.hash(JSON.stringify(val)), value: val });
+            Board.data[topic] = rec;
+            // konfliktai: tas pats objektas (pvz. siena o3) – du skirtingi savininkai
+            (val.objects || []).forEach(o => { if (!o.key) return; const c = Board.claims[o.key]; if (c && c.agent !== agentId && c.type === o.type) Board.conflicts.push({ t: Date.now(), key: o.key, a: c.agent, b: agentId, text: 'Tą patį objektą ' + o.key + ' skelbia du agentai' }); else Board.claims[o.key] = { agent: agentId, type: o.type }; });
+            Board.msg('RESULT', agentId, '*', rec.taskId, { topic, ver, hash: rec.hash, n: (val.objects || []).length });
+            return { topic, ver, hash: rec.hash };
+        },
+        query(agentId, topic) { // tik skaitymas: grąžinama kopija, ne gyvas objektas
+            const rec = Board.data[topic]; Board.reads++;
+            Board.msg('QUERY', agentId, topic.split('.')[0], '', { topic, ver: rec ? rec.ver : 0 }, rec ? 'OK' : 'NĖRA');
+            return rec ? Kit.clone(rec) : null;
+        },
+        report(agentId, rep) { Board.msg('REPORT', agentId, 'planner', rep.taskId, rep, rep.state); return Planner.receive(agentId, rep); },
+        versions() { return Object.values(Board.data).map(r => ({ topic: r.topic, ver: r.ver, by: r.by, t: r.t, hash: r.hash, n: (r.value.objects || []).length })); },
+        async persist() { if (!Board.dirty) return; Board.dirty = false; await idbPut('board', ks().pid, { data: Board.data, log: Board.log.slice(-1500), conflicts: Board.conflicts.slice(-200) }); },
+        async restore() { Board.pid = ks().pid; const s = await idbGet('board', Board.pid); Board.data = {}; Board.log = []; Board.conflicts = []; Board.claims = {};
+            if (s) { Board.data = s.data || {}; Board.log = s.log || []; Board.conflicts = s.conflicts || []; Object.values(Board.data).forEach(Kit.freeze); } }
+    };
+
+    /* ---------- AGENT: bazinė klasė ---------- */
+    class Agent {
+        constructor(id, icon, name, area, deps) { Object.assign(this, { id, icon, name, area, deps, state: 'IDLE', task: null, errors: [], steps: [], last: null }); }
+        receiveTask(task) { this.task = task; this.state = 'WORKING'; this.steps = []; this.step('Gauta užduotis ' + task.id + (task.correction ? ' (taisymas: ' + task.correction.join('; ') + ')' : '')); }
+        step(t) { this.steps.push({ t: Date.now(), text: t }); }
+        dep(id) { return Board.query(this.id, id + '.result'); }
+        async analyze() { throw new Error('analyze() neįgyvendinta'); }
+        validate(res) { // bendra patikra: kiekvienas geometrinis objektas turi privalomus laukus ir realias koordinates
+            const bad = [];
+            (res.objects || []).forEach(o => { const miss = ['id', 'type', 'coords', 'dims', 'src', 'agent', 'conf', 'status', 'ver'].filter(f => o[f] == null);
+                if (miss.length) bad.push(o.id + ': trūksta ' + miss.join(', '));
+                else if (!o.coords.every(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))) bad.push(o.id + ': netinkamos koordinatės'); });
+            res.checks.unshift({ name: 'Objektų duomenų modelis (ID, tipas, koordinatės, šaltinis, versija)', status: bad.length ? 'KLAIDA' : 'OK', note: bad.slice(0, 8).join('; '), method: 'Agent.validate' });
+            return res.checks;
+        }
+        publish(res) { return Board.publish(this.id, this.id + '.result', res, { taskId: this.task.id, model: this.task.model }); }
+        report(extra) { return Board.report(this.id, Object.assign({ taskId: this.task && this.task.id, state: this.state, errors: this.errors.slice(-5) }, extra || {})); }
+        requestCorrection(target, what) { return Board.msg('CORRECTION_REQUEST', this.id, 'planner', this.task && this.task.id, { target, what }); }
+        saveState() { return { state: this.state, task: this.task && { id: this.task.id, t: this.task.t }, errors: this.errors.slice(-20), steps: this.steps.slice(-40), last: this.last }; }
+        restoreState(s) { if (!s) return; this.state = ST_TXT[s.state] ? s.state : 'IDLE'; this.task = s.task || null; this.errors = s.errors || []; this.steps = s.steps || []; this.last = s.last || null; }
+        obj(o) { return Object.assign({ agent: this.id, conf: 1, status: 'PROPOSED', ver: this.task ? this.task.ver : 1, dims: {}, calc: [] }, o); }
+        async run(task) {
+            this.receiveTask(task);
+            try {
+                const res = await this.analyze(task); res.checks = res.checks || []; res.needs = res.needs || []; res.issues = res.issues || [];
+                this.step('Analizė baigta: ' + (res.objects || []).length + ' obj.');
+                this.validate(res);
+                const bad = res.checks.filter(c => c.status === 'KLAIDA');
+                (res.objects || []).forEach(o => { if (o.status === 'PROPOSED' && o.ok !== false && !bad.length) o.status = 'VERIFIED'; delete o.ok; });
+                this.state = res.needs.length ? 'NEEDS_DATA' : (bad.length || res.issues.some(i => i.level === 'KLAIDA') ? 'NEEDS_REVIEW' : 'COMPLETED');
+                const pub = this.publish(res); this.step('Paskelbta Board: ' + pub.topic + ' v' + pub.ver);
+                this.last = { ver: pub.ver, hash: pub.hash, t: Date.now() };
+                return this.report({ pub, checks: res.checks.map(c => ({ name: c.name, status: c.status })), needs: res.needs, issues: res.issues });
+            } catch (e) { // vieno agento klaida nepaliečia kitų
+                this.state = 'FAILED'; this.errors.push({ t: Date.now(), text: String(e && e.message || e) }); this.step('Klaida: ' + (e && e.message || e));
+                Board.msg('ERROR', this.id, 'planner', task.id, { text: String(e && e.message || e) }, 'FAILED');
+                return this.report({ error: String(e && e.message || e) });
+            }
+        }
+    }
+    const floorsList = () => Array.from({ length: floorCount() }, (_, k) => k);
+    function wallFrame(wk, wi) { // tas pats sienos rėmas kaip pagrindinio lango angų piešime (drawOpeningsPlan)
+        if (wk === 'o') { if (!R.walls[wi]) return null; const g = wallSegO(wi); return { A: g.A, d: g.d, C: g.C }; }
+        const r = RI && RI.walls[wi]; return r && r.pos && r.len > 0 ? { A: r.a, d: r.v, C: r.len } : null;
+    }
+    const along = (f, u) => [f.A[0] + f.d[0] * u, f.A[1] + f.d[1] * u];
+    const srcModel = (what, k) => ({ doc: '', page: 0, how: 'projekto modelis (pagrindinis langas)', what, floor: k });
+    const pdfDocNow = () => { if (!PDFU || !PDFU.name) return null; const d = ks().docs.find(x => x.name === PDFU.name); return d ? { doc: d.id, docName: d.name, page: PDFU.page } : null; };
+    function evidence(kind, re) { // ieškoma VISUOSE projekto dokumentuose (ne tik viename PDF)
+        const out = []; Docs.pages().forEach(p => { if (kind && !(p.f.kinds || []).includes(kind)) return; (p.f.lines || []).forEach(l => { if (re.test(l)) out.push({ doc: p.doc.id, docName: p.doc.name, page: p.page, text: l.slice(0, 140) }); }); });
+        return out.slice(0, 40);
+    }
+
+    /* ---------- 6 SPECIALISTAI ---------- */
+    class WallsAgent extends Agent {
+        constructor() { super('walls', '🧱', 'Sienų agentas', 'Išorinės ir vidinės sienos, pertvaros, storiai, ilgiai, aukščiai, plotai, tūriai', []); }
+        async analyze() {
+            const objects = [], qty = [], checks = [], issues = [], pdfC = [];
+            floorsList().forEach(k => withFloor(k, () => {
+                if (!R || !R.n) return; this.step(floorName(k) + ': ' + R.n + ' išor. sienų, ' + (RI ? RI.m : 0) + ' vidinių');
+                let devMax = 0;
+                R.walls.forEach((rw, i) => { const wo = WO[i]; if (!wo || !wo.hasWall) return;
+                    const Lc = Kit.dist(rw.a, rw.b), dev = Math.abs(Lc - rw.C); devMax = Math.max(devMax, dev);   // 2 nepriklausomi būdai: Excel formulė C ir koordinatės
+                    const pc = PDFU && R.closed && k === (project.fl || 0) ? pdfLenCheck(rw.oa, rw.ob) : null; if (pc && pc.st !== 'none') pdfC.push({ k, lab: 'S' + (i + 1), st: pc.st, v: pc.v, L: rw.L });
+                    objects.push(this.obj({ id: 'W' + k + '_o' + i, key: 'f' + k + ':o' + i, type: 'išorinė siena', floor: k, label: 'S' + (i + 1), coords: [rw.oa, rw.ob, rw.ib, rw.ia],
+                        dims: { C: Kit.r3(rw.C), L: Kit.r3(rw.L), V: Kit.r3(rw.V), t: rw.t, h: (project.walls[i].hMode || 'one') === 'one' && project.walls[i].h !== '' ? Number(project.walls[i].h) : null, area: wo.area, net: wo.net, vol: wo.vol, ty: wo.ty },
+                        src: Object.assign(srcModel('siena S' + (i + 1), k), pc && pc.st !== 'none' ? Object.assign({ dimTxt: String(pc.v) }, pdfDocNow() || {}) : {}), ok: dev < 0.005 && (!pc || pc.st !== 'warn') && !wo.err,
+                        calc: ['Centro ilgis C = ' + fmt(rw.C, 3) + ' m (skaičiuoklės formulė)', 'Pagal koordinates |b−a| = ' + fmt(Lc, 3) + ' m (skirtumas ' + fmt(dev * 1000, 1) + ' mm)', 'Storis t = ' + fmt(rw.t, 3) + ' m', wo.area != null ? 'Plotas ' + fmt(wo.area) + ' m², grynas ' + fmt(wo.net) + ' m², tūris ' + fmt(wo.vol, 3) + ' m³' : 'Plotas: trūksta aukščio']
+                            .concat(pc && pc.st !== 'none' ? ['Brėžinio matmuo ' + pc.v + ' mm: ' + (pc.st === 'ok' ? 'sutampa' : 'nesutampa (nubrėžta ' + Math.round(rw.L * 1000) + ')')] : []) }));
+                    if (wo.err) issues.push({ level: 'KLAIDA', text: floorName(k) + ' S' + (i + 1) + ': ' + wo.err }); });
+                (RI ? RI.walls : []).forEach((r, j) => { if (!r.ok || !(r.len > 0)) { if (r.err) issues.push({ level: 'KLAIDA', text: floorName(k) + ' V' + (j + 1) + ': ' + r.err }); return; }
+                    objects.push(this.obj({ id: 'W' + k + '_i' + j, key: 'f' + k + ':i' + j, type: 'vidinė siena', floor: k, label: 'V' + (j + 1), coords: r.poly,
+                        dims: { len: Kit.r3(r.len), t: r.t, area: r.area, vol: r.vol, ty: r.ty, bear: !!(project.inner[j] && project.inner[j].bear), startOn: !!r.startOn, endOn: !!r.endOn }, src: srcModel('vidinė siena V' + (j + 1), k),
+                        ok: Math.abs(Kit.dist(r.a, r.b) - r.len) < 0.005, calc: ['Ilgis = ' + fmt(r.len, 3) + ' m, pagal koordinates ' + fmt(Kit.dist(r.a, r.b), 3) + ' m', 'Storis ' + fmt(r.t, 3) + ' m', r.area != null ? 'Plotas ' + fmt(r.area) + ' m², tūris ' + fmt(r.vol, 3) + ' m³' : 'Plotas: trūksta aukščio'] })); });
+                const T = Q.tot;
+                qty.push({ floor: k, name: 'Išorinės sienos – ilgis (centras)', unit: 'm', v: R.walls.reduce((a, w, i) => a + (WO[i] && WO[i].hasWall ? w.C : 0), 0) },
+                    { floor: k, name: 'Vidinės sienos – ilgis', unit: 'm', v: RI ? RI.len : 0 },
+                    { floor: k, name: 'Išorinės sienos – bendras plotas', unit: 'm²', v: T.outAll }, { floor: k, name: 'Išorinės sienos – angų plotas', unit: 'm²', v: T.outOpen },
+                    { floor: k, name: 'Išorinės sienos – grynas mūro plotas', unit: 'm²', v: T.outM2 }, { floor: k, name: 'Išorinės sienos – mūro tūris', unit: 'm³', v: T.outM3 },
+                    { floor: k, name: 'Vidinės sienos – bendras plotas', unit: 'm²', v: T.inAll }, { floor: k, name: 'Vidinės sienos – grynas plotas', unit: 'm²', v: T.inM2 }, { floor: k, name: 'Vidinės sienos – tūris', unit: 'm³', v: T.inM3 });
+                checks.push({ name: floorName(k) + ': centro ilgis – formulė ir koordinatės (dviguba patikra)', status: devMax < 0.005 ? 'OK' : 'ĮSPĖJIMAS', note: 'didžiausias skirtumas ' + fmt(devMax * 1000, 1) + ' mm', method: 'C ↔ |b−a|' });
+                checks.push({ name: floorName(k) + ': kontūras uždarytas', status: R.closed ? 'OK' : 'ĮSPĖJIMAS', note: R.closed ? '' : 'kontūras atviras – plotai ir perdangos nepatikimi' });
+                if (R.hMissing && R.hMissing.length) issues.push({ level: 'ĮSPĖJIMAS', text: floorName(k) + ': trūksta aukščių sienoms ' + R.hMissing.join(', ') });
+                QC.filter(c => c.status === 'KLAIDA').forEach(c => issues.push({ level: 'KLAIDA', text: floorName(k) + ': ' + c.name + (c.note ? ' – ' + c.note : '') }));
+            }));
+            if (!objects.length) return { objects, qty, checks, issues, needs: ['Projekte nėra sienų – nubrėžkite kontūrą (✏️ arba 📄 PDF)'] };
+            if (pdfC.length) { const w = pdfC.filter(x => x.st === 'warn'); checks.push({ name: 'Ilgiai pagal brėžinio matmenis', status: w.length ? 'ĮSPĖJIMAS' : 'OK', note: (pdfC.length - w.length) + ' sutampa' + (w.length ? '; nesutampa: ' + w.map(x => x.lab + ' (' + x.v + ' / ' + Math.round(x.L * 1000) + ')').join(', ') : ''), method: 'pdfLenCheck' }); w.forEach(x => issues.push({ level: 'ĮSPĖJIMAS', text: 'Prieštaravimas: ' + x.lab + ' brėžinyje ' + x.v + ' mm, modelyje ' + Math.round(x.L * 1000) + ' mm – automatiškai nesirenkama' })); }
+            else checks.push({ name: 'Ilgiai pagal brėžinio matmenis', status: 'NETIKRINTA', note: 'brėžinys su mastelio kalibracija neatidarytas' });
+            return { objects, qty, checks, issues, evidence: evidence('walls', /\b\d{3}\b.*(sien|mūr)|(sien|mūr).*\b\d{3}\b/i) };
+        }
+    }
+    class FoundationAgent extends Agent {
+        constructor() { super('fnd', '🏗️', 'Pamatų agentas', 'Pamatų juostos ir rostverkai po laikančiomis sienomis, skerspjūvis, ilgiai, betono tūris', ['walls']); }
+        async analyze() {
+            const W = this.dep('walls'); if (!W) return { objects: [], needs: ['Nėra Sienų agento rezultato (Board)'] };
+            const inp = ks().input.fnd || {}, objects = [], qty = [], checks = [], needs = [], issues = [];
+            const ev = evidence('fnd', /pamat|rostverk|\d{3,4}\s*[x×]\s*\d{3,4}|[±+\-−]\d[.,]\d{3}/i), sizes = [];
+            ev.forEach(e => (e.text.match(/\b(\d{3,4})\s*[x×]\s*(\d{3,4})\b/g) || []).forEach(s => { const m = s.match(/(\d{3,4})\s*[x×]\s*(\d{3,4})/); sizes.push({ b: Number(m[1]) / 1000, h: Number(m[2]) / 1000, src: e }); }));
+            const b = Number(inp.b) > 0 ? Number(inp.b) : null, h = Number(inp.h) > 0 ? Number(inp.h) : null;
+            if (!(b && h)) needs.push('Pamato skerspjūvis (plotis × aukštis) nepatvirtintas' + (sizes.length ? ' – dokumentuose rasta: ' + sizes.slice(0, 4).map(s => Math.round(s.b * 1000) + '×' + Math.round(s.h * 1000) + ' (' + s.src.docName + ' ' + s.src.page + ' psl.)').join(', ') : ' – dokumentuose nerasta') + '. Įveskite arba patvirtinkite – spėjimas nenaudojamas.');
+            const outer = W.value.objects.filter(o => o.floor === 0 && o.type === 'išorinė siena' && o.dims.ty !== 'none');
+            const inner = W.value.objects.filter(o => o.floor === 0 && o.type === 'vidinė siena' && (o.dims.bear || o.dims.t >= 0.2));
+            const tO = outer.length ? outer.reduce((a, o) => a + o.dims.t, 0) / outer.length : 0;
+            let Lsum = 0;
+            outer.forEach(o => { const a = Kit.lerp(o.coords[0], o.coords[3], 0.5), c = Kit.lerp(o.coords[1], o.coords[2], 0.5), L = o.dims.C; Lsum += L;
+                objects.push(this.obj({ id: 'F_' + o.label, key: 'fnd:' + o.key, type: 'pamato juosta', floor: 0, label: 'P-' + o.label, coords: [a, c], dims: { L: Kit.r3(L), b, h, under: o.label, vol: b && h ? Kit.r3(L * b * h) : null },
+                    src: srcModel('po siena ' + o.label + ' (Sienų agento v' + W.ver + ')', 0), conf: b && h ? 1 : 0.5, ok: !!(b && h),
+                    calc: ['Ašis = sienos ' + o.label + ' centro linija, L = ' + fmt(L, 3) + ' m', b && h ? 'V = L × b × h = ' + fmt(L, 3) + ' × ' + fmt(b, 3) + ' × ' + fmt(h, 3) + ' = ' + fmt(L * b * h, 3) + ' m³' : 'Tūris neskaičiuojamas – skerspjūvis nepatvirtintas'] })); });
+            inner.forEach(o => { const A = Kit.lerp(o.coords[0], o.coords[3], 0.5), B = Kit.lerp(o.coords[1], o.coords[2], 0.5), cut = b ? Math.max(0, (b - tO) / 2) : 0;
+                const cutA = o.dims.startOn ? cut : 0, cutB = o.dims.endOn ? cut : 0, L = Math.max(0, o.dims.len - cutA - cutB), d = Kit.dist(A, B) || 1; Lsum += L;
+                objects.push(this.obj({ id: 'F_' + o.label, key: 'fnd:' + o.key, type: 'pamato juosta', floor: 0, label: 'P-' + o.label, coords: [Kit.lerp(A, B, cutA / d), Kit.lerp(A, B, (d - cutB) / d)], dims: { L: Kit.r3(L), b, h, under: o.label, cutA: Kit.r3(cutA), cutB: Kit.r3(cutB), vol: b && h ? Kit.r3(L * b * h) : null },
+                    src: srcModel('po vidine laikančia siena ' + o.label, 0), conf: b && h ? 0.9 : 0.4, ok: !!(b && h),
+                    calc: ['Siena ' + o.label + ' (' + (o.dims.bear ? 'pažymėta laikančia' : 'storis ≥ 0,20 m') + '), ilgis tarp sienų ' + fmt(o.dims.len, 3) + ' m', b ? 'Galai, atsiremiantys į išorės sienas, prasideda nuo išorės juostos krašto: −(b − t)/2 = −' + fmt(cut, 3) + ' m kiekvienam (' + ((o.dims.startOn ? 1 : 0) + (o.dims.endOn ? 1 : 0)) + ') → L = ' + fmt(L, 3) + ' m' : 'L = ' + fmt(L, 3) + ' m (be galų korekcijos – b nežinomas)', 'Galai prie kitų pertvarų netrumpinami'] })); });
+            if (!outer.length) needs.push('1 aukšte nėra išorinių sienų');
+            const perim = outer.reduce((a, o) => a + Kit.dist(Kit.lerp(o.coords[0], o.coords[3], 0.5), Kit.lerp(o.coords[1], o.coords[2], 0.5)), 0), sumC = outer.reduce((a, o) => a + o.dims.C, 0);
+            checks.push({ name: 'Išorės juostų ilgis: sienų C suma ↔ ašių koordinatės (dviguba patikra)', status: Math.abs(perim - sumC) < 0.01 ? 'OK' : 'ĮSPĖJIMAS', note: fmt(sumC, 3) + ' / ' + fmt(perim, 3) + ' m', method: 'ΣC ↔ Σ|b−a|' });
+            checks.push({ name: 'Skerspjūvis patvirtintas vartotojo', status: b && h ? 'OK' : 'NETIKRINTA', note: b && h ? fmt(b, 3) + ' × ' + fmt(h, 3) + ' m (' + (inp.src || 'vartotojas') + ')' : 'laukiama patvirtinimo' });
+            qty.push({ floor: 0, name: 'Pamatų juostos – ilgis (ašimis)', unit: 'm', v: Lsum }, { floor: 0, name: 'Pamatų juostų skaičius', unit: 'vnt.', v: objects.length });
+            if (b && h) qty.push({ floor: 0, name: 'Pamatų betonas', unit: 'm³', v: Lsum * b * h });
+            const el = []; ev.forEach(e => (e.text.match(/[±+\-−]\s?\d{1,2}[.,]\d{3}/g) || []).forEach(s => el.push(Kit.parseElev(s) + ' (' + e.docName + ' ' + e.page + ' psl.)')));
+            if (el.length) issues.push({ level: 'INFO', text: 'Altitudės pamatų brėžiniuose: ' + [...new Set(el)].slice(0, 6).join(', ') });
+            return { objects, qty, checks, needs, issues, evidence: ev, candidates: sizes.slice(0, 10).map(s => ({ b: s.b, h: s.h, doc: s.src.doc, docName: s.src.docName, page: s.src.page, text: s.src.text })) };
+        }
+    }
+    class OpeningsAgent extends Agent {
+        constructor() { super('open', '🪟', 'Angų agentas', 'Langų, durų ir kitos angos: matmenys, padėtis sienose, kiekis, plotai', ['walls']); }
+        async analyze() {
+            const W = this.dep('walls'), objects = [], qty = [], checks = [], issues = [];
+            const wl = {}; (W ? W.value.objects : []).forEach(o => { wl[o.key] = o; });
+            const zin = {}; Docs.pages().forEach(p => (p.f.lines || []).forEach(l => { const re = /\b((?:L|D|LD|DL|V)\s*-?\s*\d{1,3}[a-z]?)\b[^\n]{0,80}?(\d{3,4})\s*[x×*]\s*(\d{3,4})/gi; let m;
+                while ((m = re.exec(l))) { const key = m[1].replace(/[\s-]/g, '').toUpperCase(); (zin[key] = zin[key] || []).push({ w: Number(m[2]) / 1000, h: Number(m[3]) / 1000, doc: p.doc.id, docName: p.doc.name, page: p.page }); } }));
+            let dual = 0;
+            floorsList().forEach(k => withFloor(k, () => {
+                if (!R || !R.n) return; let n = 0, area = 0, nL = 0, nD = 0, nK = 0;
+                project.openings.forEach((o, q) => { const wkey = 'f' + k + ':' + o.wk + o.wi, wall = wl[wkey];
+                    const fr = wallFrame(o.wk, o.wi), C = fr ? fr.C : 0;
+                    const its = layoutOpenings(o.wk, o.wi, C).filter(it => it.k === q), engine = Q.openings[q] && Q.openings[q].AD;
+                    const kitA = (Number(o.w) || 0) * (Number(o.h) || 0) * (Number(o.q) || 1); area += kitA; n += its.length;
+                    if (engine != null && Math.abs(engine - kitA) > 0.005) { dual++; issues.push({ level: 'ĮSPĖJIMAS', text: floorName(k) + ' anga ' + (o.mark || q + 1) + ': plotas ' + fmt(kitA) + ' ≠ skaičiuoklė ' + fmt(engine) }); }
+                    if (o.kind === 'L') nL += its.length; else if (o.kind === 'D') nD += its.length; else nK += its.length;
+                    const z = o.mark && zin[String(o.mark).replace(/[\s-]/g, '').toUpperCase()];
+                    const zBad = z && z.find(r => Math.abs(r.w - o.w) > 0.005 || Math.abs(r.h - o.h) > 0.005);
+                    if (zBad) issues.push({ level: 'ĮSPĖJIMAS', text: 'Prieštaravimas: ' + o.mark + ' modelyje ' + fmt(o.w) + '×' + fmt(o.h) + ', ' + zBad.docName + ' ' + zBad.page + ' psl. – ' + fmt(zBad.w) + '×' + fmt(zBad.h) + ' (nesirenkama automatiškai)' });
+                    its.forEach(it => { if (!fr || !(C > 0)) return; const inside = it.u >= -0.005 && it.u + it.w <= C + 0.005;
+                        if (!inside) issues.push({ level: 'KLAIDA', text: floorName(k) + ' ' + (o.mark || 'anga') + ' išlenda už sienos ' + (wall ? wall.label : wkey) });
+                        objects.push(this.obj({ id: 'O' + k + '_' + q + '_' + it.j, key: 'f' + k + ':op' + q + '.' + it.j, type: { L: 'langas', D: 'durys', K: 'anga' }[o.kind] || 'anga', floor: k, label: o.mark || ({ L: 'L', D: 'D', K: 'A' }[o.kind] + (q + 1)),
+                            coords: [along(fr, it.u), along(fr, it.u + it.w)], wallKey: wkey, dims: { w: o.w, h: o.h, sill: it.sill, u: Kit.r3(it.u), wall: wall ? wall.label : o.wk + (o.wi + 1), area: Kit.r3(it.w * it.h) },
+                            src: Object.assign(srcModel('anga ' + (o.mark || q + 1), k), z ? { doc: z[0].doc, docName: z[0].docName, page: z[0].page, what: 'žiniaraštis: ' + o.mark } : {}), ok: inside && !zBad && wall != null,
+                            calc: ['Plotis × aukštis = ' + fmt(it.w) + ' × ' + fmt(it.h) + ' = ' + fmt(it.w * it.h) + ' m²', 'Vieta nuo sienos pradžios ' + fmt(it.u) + ' m (siena ' + fmt(C) + ' m)', 'Apačia ' + fmt(it.sill) + ' m', z ? 'Žiniaraštyje: ' + z.map(r => fmt(r.w) + '×' + fmt(r.h) + ' (' + r.docName + ' ' + r.page + ' psl.)').join('; ') : 'Žiniaraštyje žymės nerasta'] })); }); });
+                if (project.openings.length) qty.push({ floor: k, name: 'Langai', unit: 'vnt.', v: nL }, { floor: k, name: 'Durys', unit: 'vnt.', v: nD }, { floor: k, name: 'Kitos angos', unit: 'vnt.', v: nK }, { floor: k, name: 'Angų plotas', unit: 'm²', v: area });
+            }));
+            checks.push({ name: 'Angų plotas: w×h×kiekis ↔ skaičiuoklė (dviguba patikra)', status: dual ? 'ĮSPĖJIMAS' : 'OK', note: dual ? dual + ' nesutampa' : '', method: 'Kit ↔ XL' });
+            checks.push({ name: 'Žymės palygintos su žiniaraščiu visuose dokumentuose', status: Object.keys(zin).length ? 'OK' : 'NETIKRINTA', note: Object.keys(zin).length ? Object.keys(zin).length + ' žymių rasta' : 'žiniaraščio dokumentuose nerasta' });
+            return { objects, qty, checks, issues };
+        }
+    }
+    class LintelsAgent extends Agent {
+        constructor() { super('lint', '🧱', 'Sąramų agentas', 'Sąramų tipai, ilgiai, skerspjūviai, kiekiai, ryšys su angomis', ['open']); }
+        async analyze() {
+            const O = this.dep('open'); if (!O) return { objects: [], needs: ['Nėra Angų agento rezultato'] };
+            const objects = [], qty = [], checks = [], issues = []; let dual = 0;
+            floorsList().forEach(k => withFloor(k, () => {
+                let nM = 0, nL = 0, len = 0, vol = 0;
+                project.openings.forEach((o, q) => { if (!o.lt) return; const ops = O.value.objects.filter(x => x.floor === k && x.key.startsWith('f' + k + ':op' + q + '.'));
+                    const ll = Number(o.ll) || 0, lr = Number(o.lr) || 0, L = (Number(o.w) || 0) + ll + lr, need = o.lt === 'L' ? 0.1 : 0.15, eng = Q.openings[q] && Q.openings[q].lint;
+                    const t = o.wk === 'o' ? (project.walls[o.wi] && Number(project.walls[o.wi].t)) : (project.inner[o.wi] && Number(project.inner[o.wi].t));
+                    const vOne = o.lt === 'L' && o.lh ? L * (Number(o.lh) || 0) * (t || 0) : null;
+                    if (eng && eng.AJ != null && Math.abs(eng.AJ - L) > 0.005) { dual++; issues.push({ level: 'ĮSPĖJIMAS', text: floorName(k) + ' sąrama ' + (o.mark || q + 1) + ': ilgis ' + fmt(L) + ' ≠ skaičiuoklė ' + fmt(eng.AJ) }); }
+                    if (Math.min(ll, lr) < need - 0.001) issues.push({ level: 'ĮSPĖJIMAS', text: floorName(k) + ' ' + (o.mark || 'anga ' + (q + 1)) + ': sąramos atrama ' + fmt(Math.min(ll, lr)) + ' m (rekomenduojama ≥ ' + fmt(need) + ')' });
+                    if (!ops.length) issues.push({ level: 'KLAIDA', text: 'Sąrama be angos Board duomenyse: ' + (o.mark || q + 1) });
+                    ops.forEach(op => { const d = Kit.dist(op.coords[0], op.coords[1]) || 1, u = [(op.coords[1][0] - op.coords[0][0]) / d, (op.coords[1][1] - op.coords[0][1]) / d];
+                        const a = [op.coords[0][0] - u[0] * ll, op.coords[0][1] - u[1] * ll], b = [op.coords[1][0] + u[0] * lr, op.coords[1][1] + u[1] * lr];
+                        len += L; if (vOne) vol += vOne; if (o.lt === 'M') nM++; else nL++;
+                        objects.push(this.obj({ id: 'S' + op.id.slice(1), key: 'lint:' + op.key, type: o.lt === 'L' ? 'liejama sąrama' : 'surenkama sąrama', floor: k, label: 'SĄ ' + op.label, coords: [a, b],
+                            dims: { L: Kit.r3(L), ll, lr, lh: o.lh || null, t: t || null, opening: op.label, vol: vOne != null ? Kit.r3(vOne) : null }, src: srcModel('anga ' + op.label + ' (Angų agento v' + O.ver + ')', k), ok: Math.min(ll, lr) >= need - 0.001,
+                            calc: ['L = anga ' + fmt(o.w) + ' + atramos ' + fmt(ll) + ' + ' + fmt(lr) + ' = ' + fmt(L) + ' m', vOne != null ? 'V = L × h × t = ' + fmt(L) + ' × ' + fmt(o.lh) + ' × ' + fmt(t) + ' = ' + fmt(vOne, 3) + ' m³' : (o.lt === 'L' ? 'Tūris: trūksta sąramos aukščio' : 'Surenkama – tūris neskaičiuojamas')] })); }); });
+                if (nM + nL) qty.push({ floor: k, name: 'Surenkamos sąramos', unit: 'vnt.', v: nM }, { floor: k, name: 'Liejamos sąramos', unit: 'vnt.', v: nL }, { floor: k, name: 'Sąramų ilgis', unit: 'm', v: len }, { floor: k, name: 'Liejamų sąramų betonas', unit: 'm³', v: vol });
+            }));
+            checks.push({ name: 'Sąramų ilgis: anga + atramos ↔ skaičiuoklė (dviguba patikra)', status: dual ? 'ĮSPĖJIMAS' : 'OK', note: dual ? dual + ' nesutampa' : '', method: 'Kit ↔ XL' });
+            return { objects, qty, checks, issues };
+        }
+    }
+    class RingAgent extends Agent {
+        constructor() { super('ring', '🌀', 'Žiedo agentas', 'Gelžbetoniniai žiedai: trasos, ilgiai, skerspjūviai, aukščiai, tūriai', ['walls', 'lint']); }
+        async analyze() {
+            const W = this.dep('walls'), Ln = this.dep('lint'), objects = [], qty = [], checks = [], issues = [], needs = [];
+            const wl = {}; (W ? W.value.objects : []).forEach(o => { wl[o.key] = o; });
+            floorsList().forEach(k => withFloor(k, () => {
+                if (!R || !R.n) return; let len = 0, vol = 0, kitLen = 0;
+                const one = (kind, i, w, A, B, C, lab) => { const ty = wallType(kind, w); if (ty !== 'ring' && ty !== 'only') return;
+                    const rh = Number(ringHOf(w)) || 0, t = Number(w.t) || 0, rw = ringWOf(w, t), qk = Q.byKey[kind + i], eng = qk && qk.ring;
+                    if (!(rh > 0)) needs.push(floorName(k) + ' ' + lab + ': žiedo aukštis neįvestas (⚙️ → žiedo aukštis)');
+                    const L = eng && eng.len != null ? eng.len : C; len += L; kitLen += C; if (eng && eng.vol != null) vol += eng.vol;
+                    objects.push(this.obj({ id: 'Z' + k + '_' + kind + i, key: 'ring:f' + k + ':' + kind + i, type: 'g/b žiedas', floor: k, label: 'Ž ' + lab, coords: [A, B], dims: { L: Kit.r3(L), b: rw, h: rh || null, vol: eng && eng.vol != null ? Kit.r3(eng.vol) : null, wall: lab },
+                        src: srcModel('siena ' + lab + (wl['f' + k + ':' + kind + i] ? ' (Sienų agento v' + W.ver + ')' : ''), k), ok: rh > 0 && !!wl['f' + k + ':' + kind + i],
+                        calc: ['Trasa – sienos ' + lab + ' centras, skaičiuoklė L = ' + fmt(L, 3) + ' m, koordinatės ' + fmt(C, 3) + ' m', 'Skerspjūvis ' + fmt(rw, 3) + ' × ' + (rh > 0 ? fmt(rh, 3) : '?') + ' m', eng && eng.vol != null ? 'V = ' + fmt(eng.vol, 3) + ' m³' : 'Tūris: trūksta aukščio'] })); };
+                R.walls.forEach((rw, i) => { const f = wallFrame('o', i); if (f && f.C > 0) one('o', i, project.walls[i], f.A, along(f, f.C), f.C, 'S' + (i + 1)); });
+                (RI ? RI.walls : []).forEach((r, j) => { const f = wallFrame('i', j); if (r.ok && f) one('i', j, project.inner[j], f.A, along(f, f.C), f.C, 'V' + (j + 1)); });
+                if (len) { qty.push({ floor: k, name: 'Žiedo ilgis', unit: 'm', v: len }, { floor: k, name: 'Žiedo betonas', unit: 'm³', v: vol });
+                    checks.push({ name: floorName(k) + ': žiedo ilgis – skaičiuoklė ↔ sienų geometrija', status: Math.abs(len - kitLen) <= Math.max(0.05, 0.02 * kitLen) ? 'OK' : 'ĮSPĖJIMAS', note: fmt(len) + ' / ' + fmt(kitLen) + ' m (skirtumas dėl kampų leidžiamas ≤ 2 %)', method: 'XL ↔ geometrija' }); }
+            }));
+            const lintIn = Ln ? Ln.value.objects.filter(l => objects.some(z => z.floor === l.floor && z.dims.wall === (l.label.split(' ')[1] || ''))).length : 0;
+            if (Ln && Ln.value.objects.length) issues.push({ level: 'INFO', text: 'Sąramų po žiedu sienose: ' + lintIn + ' (Sąramų agento v' + Ln.ver + ')' });
+            if (!objects.length) issues.push({ level: 'INFO', text: 'Projekte nėra sienų su monolitiniu žiedu' });
+            return { objects, qty, checks, issues, needs: [...new Set(needs)] };
+        }
+    }
+    class SlabAgent extends Agent {
+        constructor() { super('slab', '🟫', 'Perdangų agentas', 'Perdangų tipai, plokštės / sijos, plotai, atrėmimas ant laikančių sienų', ['walls']); }
+        async analyze() {
+            const W = this.dep('walls'), objects = [], qty = [], checks = [], issues = [], needs = [];
+            const n = floorCount(), ev = evidence('slab', /perdang|plokšt/i);
+            if (n < 2) { if (ev.length) issues.push({ level: 'ĮSPĖJIMAS', text: 'Dokumentuose yra perdangų informacija (' + ev[0].docName + ' ' + ev[0].page + ' psl.), bet projekte – vienas aukštas' });
+                checks.push({ name: 'Perdangos', status: 'OK', note: 'projekte vienas aukštas – perdangų nėra' }); return { objects, qty, checks, issues, evidence: ev }; }
+            for (let k = 1; k < n; k++) { const c = slabCfg(k); if (!c || c.type === 'none') { issues.push({ level: 'INFO', text: 'Perdanga tarp ' + k + ' ir ' + (k + 1) + ' aukšto: nenurodyta' }); continue; }
+                const Lc = slabCalc(k); if (!Lc) { needs.push('Perdangos ' + k + '/' + (k + 1) + ' nepavyko apskaičiuoti'); continue; }
+                const bearW = W ? W.value.objects.filter(o => o.floor === k - 1 && o.dims.bear).length : 0;
+                if (c.type !== 'mono' && !Lc.bearN) needs.push('Perdanga ' + k + '/' + (k + 1) + ': pažymėkite laikančias sienas (🏢 → perdanga)');
+                Lc.warn.forEach(w => issues.push({ level: 'ĮSPĖJIMAS', text: 'Perdanga ' + k + '/' + (k + 1) + ': ' + w }));
+                Lc.items.forEach((it, j) => objects.push(this.obj({ id: 'P' + k + '_' + j, key: 'slab:' + k + ':' + j, type: { mono: 'monolitinė perdanga', plate: 'perdangos plokštė', fill: 'monolitinis intarpas', beam: 'perdangos sija' }[it.kind] || it.kind, floor: k - 1, label: 'P' + k + '.' + (j + 1),
+                    coords: it.poly, dims: { t: it.t, L: it.L != null ? Kit.r3(it.L) : null, area: Kit.r3(Kit.polyArea(it.poly)) }, src: srcModel('perdanga ' + k + '/' + (k + 1) + ' – ' + slabName(c), k - 1), ok: c.type === 'mono' || Lc.bearN > 0,
+                    calc: ['Plotas pagal kontūrą ' + fmt(Kit.polyArea(it.poly)) + ' m²', 'Storis ' + fmt(it.t, 3) + ' m' + (it.L != null ? ', ilgis ' + fmt(it.L) + ' m' : '')] })));
+                const kitA = Lc.items.filter(i => i.kind !== 'beam').reduce((a, i) => a + Kit.polyArea(i.poly), 0);
+                if (c.type === 'mono') { qty.push({ floor: k - 1, name: 'Monolitinė perdanga ' + k + '/' + (k + 1) + ' – plotas', unit: 'm²', v: Lc.qty.area }, { floor: k - 1, name: 'Monolitinė perdanga ' + k + '/' + (k + 1) + ' – betonas', unit: 'm³', v: Lc.qty.vol });
+                    checks.push({ name: 'Perdanga ' + k + '/' + (k + 1) + ': plotas – skaičiavimas ↔ daugiakampis', status: Math.abs(kitA - Lc.qty.area) < 0.01 ? 'OK' : 'ĮSPĖJIMAS', note: fmt(Lc.qty.area) + ' / ' + fmt(kitA) + ' m²', method: 'slabCalc ↔ Kit.polyArea' }); }
+                if (c.type === 'pre') { qty.push({ floor: k - 1, name: 'Perdangos plokštės ' + k + '/' + (k + 1), unit: 'vnt.', v: Lc.qty.n || 0 }, { floor: k - 1, name: 'Plokščių plotas ' + k + '/' + (k + 1), unit: 'm²', v: Lc.qty.platesA }, { floor: k - 1, name: 'Intarpų betonas ' + k + '/' + (k + 1), unit: 'm³', v: Lc.qty.fillV });
+                    checks.push({ name: 'Perdanga ' + k + '/' + (k + 1) + ': plokštės + intarpai ↔ daugiakampiai', status: Math.abs(kitA - (Lc.qty.platesA + Lc.qty.fillA)) < Math.max(0.05, 0.01 * kitA) ? 'OK' : 'ĮSPĖJIMAS', note: fmt(Lc.qty.platesA + Lc.qty.fillA) + ' / ' + fmt(kitA) + ' m²', method: 'slabCalc ↔ Kit.polyArea' }); }
+                if (c.type === 'wood') qty.push({ floor: k - 1, name: 'Perdangos sijos ' + k + '/' + (k + 1), unit: 'vnt.', v: Lc.qty.n || 0 }, { floor: k - 1, name: 'Sijų ilgis ' + k + '/' + (k + 1), unit: 'm', v: Lc.qty.len }, { floor: k - 1, name: 'Sijų mediena ' + k + '/' + (k + 1), unit: 'm³', v: Lc.qty.vol });
+                checks.push({ name: 'Perdanga ' + k + '/' + (k + 1) + ': laikančios sienos', status: c.type === 'mono' || Lc.bearN ? 'OK' : 'ĮSPĖJIMAS', note: 'pažymėta ' + Lc.bearN + (W ? ', Sienų agente laikančių vidinių: ' + bearW : '') }); }
+            return { objects, qty, checks, issues, needs, evidence: ev };
+        }
+    }
+    const AG = {}; [new FoundationAgent(), new WallsAgent(), new OpeningsAgent(), new LintelsAgent(), new RingAgent(), new SlabAgent()].forEach(a => { AG[a.id] = a; });
+
+    /* ---------- PLANNER: planas, užduotys, patikra, perdavimas į pagrindinį langą ---------- */
+    const Planner = {
+        id: 'planner', reports: {}, running: false, onProgress: null,
+        makePlan(want) { // reikalingi agentai + jų priklausomybės (topologinė tvarka)
+            const order = [], why = {};
+            const add = (id, reason) => { if (order.includes(id)) return; AG[id].deps.forEach(d => add(d, 'reikia agentui ' + AG[id].name)); order.push(id); why[id] = why[id] || reason; };
+            (want && want.length ? want : AGENT_IDS).forEach(id => add(id, 'užsakyta'));
+            return order.map(id => ({ agent: id, reason: why[id] }));
+        },
+        receive(agentId, rep) { Planner.reports[agentId] = Object.assign({ t: Date.now() }, rep); return rep; },
+        review(plan) { // agentų rezultatų tarpusavio patikra
+            const out = [], get = id => Board.data[id + '.result'], walls = get('walls');
+            const wk = new Set(walls ? walls.value.objects.map(o => o.key) : []);
+            if (get('open') && walls) { const miss = get('open').value.objects.filter(o => !wk.has(o.wallKey)); if (miss.length) out.push({ agent: 'open', text: 'Angos be sienos Sienų agento duomenyse: ' + miss.map(o => o.label).join(', ') }); }
+            if (get('fnd') && walls) { const miss = get('fnd').value.objects.filter(o => !wk.has(o.key.slice(4))); if (miss.length) out.push({ agent: 'fnd', text: 'Pamatų juostos be sienos: ' + miss.map(o => o.label).join(', ') }); }
+            if (get('lint') && get('open')) { const ok = new Set(get('open').value.objects.map(o => o.key)); const miss = get('lint').value.objects.filter(o => !ok.has(o.key.slice(5))); if (miss.length) out.push({ agent: 'lint', text: 'Sąramos be angų: ' + miss.map(o => o.label).join(', ') }); }
+            if (get('ring') && walls) { const miss = get('ring').value.objects.filter(o => !wk.has(o.key.slice(5))); if (miss.length) out.push({ agent: 'ring', text: 'Žiedai be sienų: ' + miss.map(o => o.label).join(', ') }); }
+            Board.conflicts.filter(c => !c.seen).forEach(c => { c.seen = true; out.push({ agent: c.b, text: c.text }); });
+            plan.forEach(s => { const r = Planner.reports[s.agent]; if (!r) return;
+                if (r.checks && r.checks.some(c => c.status === 'KLAIDA')) out.push({ agent: s.agent, text: 'Nepraeitos patikros: ' + r.checks.filter(c => c.status === 'KLAIDA').map(c => c.name).join('; ') });
+                const bad = (r.issues || []).filter(i => i.level === 'KLAIDA'); if (bad.length) out.push({ agent: s.agent, text: bad.slice(0, 5).map(i => i.text).join('; ') }); });
+            return out;
+        },
+        async run(want, onProgress) {
+            if (Planner.running) return null; Planner.running = true; const say = t => { try { onProgress && onProgress(t); } catch (e) { } };
+            const K = ks(), plan = Planner.makePlan(want), model = modelHash(), taskId = Kit.uid('task');
+            K.plan = { id: taskId, t: Date.now(), want: want && want.length ? want : AGENT_IDS.slice(), steps: plan.map(s => Object.assign({ state: 'IDLE' }, s)), model, transfer: {} };
+            try {
+                for (const s of K.plan.steps) {
+                    const a = AG[s.agent], task = { id: taskId + '.' + s.agent, t: Date.now(), model, ver: (a.last ? a.last.ver : 0) + 1 };
+                    Board.msg('TASK', 'planner', s.agent, task.id, { text: a.area, reason: s.reason });
+                    say(a.icon + ' ' + a.name + ' – analizuoja…'); s.state = 'WORKING'; await new Promise(r => setTimeout(r, 0));
+                    await a.run(task); s.state = a.state;
+                }
+                // patikra → klaidos grąžinamos taisyti atsakingam agentui (vieną kartą)
+                say('📋 Planner tikrina rezultatus…');
+                const rev = Planner.review(K.plan.steps); K.plan.review = rev.map(r => r.agent + ': ' + r.text);
+                const again = [...new Set(rev.map(r => r.agent))].filter(id => AG[id] && K.plan.steps.some(s => s.agent === id));
+                for (const id of again) { const a = AG[id], txt = rev.filter(r => r.agent === id).map(r => r.text);
+                    Board.msg('CORRECTION_REQUEST', 'planner', id, taskId, { what: txt }); say('↩ Grąžinta taisyti: ' + a.name);
+                    await a.run({ id: taskId + '.' + id + '.fix', t: Date.now(), model, ver: a.last ? a.last.ver + 1 : 1, correction: txt });
+                    const st = K.plan.steps.find(s => s.agent === id); st.state = a.state; st.corrected = true; }
+                say('📤 Perdavimas į pagrindinį langą…');
+                for (const s of K.plan.steps) { const a = AG[s.agent]; if (a.state === 'FAILED') { K.plan.transfer[s.agent] = { ok: false, why: 'agento klaida' }; continue; }
+                    K.plan.transfer[s.agent] = Planner.transfer(s.agent, model); }
+                const saved = Planner.verifySaved();
+                K.plan.steps.forEach(s => { const tr = K.plan.transfer[s.agent]; if (tr && tr.ok && !saved) { tr.ok = false; tr.why = 'neišsaugota telefone'; } s.done = !!(tr && tr.ok && AG[s.agent].state === 'COMPLETED'); s.final = AG[s.agent].state; });
+                K.plan.saved = saved; K.plan.end = Date.now();
+                AGENT_IDS.forEach(id => { K.agents[id] = AG[id].saveState(); });
+                save(); await Board.persist(); say('✔ Baigta');
+                return K.plan;
+            } finally { Planner.running = false; }
+        },
+        transfer(agentId, model) { // Board kopija → projekto modelis; patvirtinti duomenys neperrašomi nepastebimai
+            const K = ks(), rec = Board.query('planner', agentId + '.result'); if (!rec) return { ok: false, why: 'Board neturi rezultato' };
+            const prev = K.results[agentId], appr = prev ? prev.objects.filter(o => o.status === 'APPROVED') : [];
+            const objs = Kit.clone(rec.value.objects), changedAppr = [];
+            appr.forEach(p => { const n = objs.find(o => o.id === p.id); if (!n) { changedAppr.push(p.label + ' (dingo)'); objs.push(Object.assign({}, p, { stale: true })); return; }
+                if (JSON.stringify(n.coords) === JSON.stringify(p.coords) && JSON.stringify(n.dims) === JSON.stringify(p.dims)) { n.status = 'APPROVED'; n.approval = p.approval; }
+                else { changedAppr.push(p.label); Object.assign(n, { status: 'APPROVED', approval: p.approval, coords: p.coords, dims: p.dims, pending: { coords: n.coords, dims: n.dims } }); } });
+            if (changedAppr.length) Board.msg('APPROVAL_REQUEST', 'planner', 'vartotojas', K.plan && K.plan.id, { agent: agentId, text: 'Pasikeitė patvirtinti objektai: ' + changedAppr.join(', ') + ' – palikta patvirtinta versija, nauja laukia sprendimo' });
+            if (prev) { K.hist.push({ t: Date.now(), agent: agentId, res: prev }); if (K.hist.length > 10) K.hist.splice(0, K.hist.length - 10); }
+            K.results[agentId] = { ver: rec.ver, hash: rec.hash, t: Date.now(), model, by: agentId, objects: objs, qty: Kit.clone(rec.value.qty || []), checks: Kit.clone(rec.value.checks || []), issues: Kit.clone(rec.value.issues || []), needs: Kit.clone(rec.value.needs || []),
+                candidates: Kit.clone(rec.value.candidates || []), evidence: Kit.clone((rec.value.evidence || []).slice(0, 20)), state: AG[agentId].state };
+            delete K.stale[agentId];
+            // patikros: 1) įrašyta tas pats, kas Board, 2) koordinatės sutampa su pagrindinio lango geometrija, 3) objektai atvaizduojami
+            const r = K.results[agentId], same = r.objects.filter(o => !o.pending && !o.stale).every(o => { const b = rec.value.objects.find(x => x.id === o.id); return b && JSON.stringify(b.coords) === JSON.stringify(o.coords); }) && r.objects.length >= rec.value.objects.length;
+            const coord = Planner.verifyCoords(agentId, r.objects), draw = Planner.verifyDraw(agentId, r.objects);
+            const ok = same && coord.ok && draw.ok;
+            Board.msg(ok ? 'REPORT' : 'WARNING', 'planner', 'vartotojas', K.plan && K.plan.id, { agent: agentId, same, coord: coord.note, draw: draw.note }, ok ? 'PERDUOTA' : 'NEPATIKRINTA');
+            return { ok, same, coord: coord.note, draw: draw.note, why: ok ? '' : (!same ? 'įrašyta ne tas pats, kas Board' : (!coord.ok ? 'koordinatės nesutampa' : 'neatvaizduojama')) };
+        },
+        verifyCoords(agentId, objs) { // nepriklausomas perskaičiavimas iš pagrindinio lango geometrijos
+            let n = 0, dmax = 0, miss = 0; const D = (p, q) => Math.max(Kit.dist(p[0], q[0]), Kit.dist(p[p.length - 1], q[q.length - 1]));
+            floorsList().forEach(k => withFloor(k, () => objs.filter(o => o.floor === k && !o.pending && !o.stale).forEach(o => { let ref = null;
+                if (agentId === 'walls') { const m = o.key.match(/:(o|i)(\d+)$/); if (m && m[1] === 'o' && R.walls[+m[2]]) ref = [R.walls[+m[2]].oa, R.walls[+m[2]].ib]; else if (m && RI.walls[+m[2]]) ref = [RI.walls[+m[2]].poly[0], RI.walls[+m[2]].poly[2]];
+                    if (ref) { o = { coords: [o.coords[0], o.coords[2]] }; } }
+                else if (agentId === 'fnd') { const m = o.key.match(/:(o|i)(\d+)$/); if (m && m[1] === 'o' && R.walls[+m[2]]) ref = [R.walls[+m[2]].a, R.walls[+m[2]].b];
+                    else if (m && RI.walls[+m[2]]) { const r = RI.walls[+m[2]], ca = o.dims.cutA || 0, cb = o.dims.cutB || 0; ref = [along({ A: r.a, d: r.v }, ca), along({ A: r.a, d: r.v }, r.len - cb)]; } }
+                else if (agentId === 'ring') { const m = o.key.match(/:(o|i)(\d+)$/), f = m && wallFrame(m[1], +m[2]); if (f) ref = [f.A, along(f, f.C)]; }
+                else if (agentId === 'open' || agentId === 'lint') { const m = o.key.match(/op(\d+)\.(\d+)$/), op = m && project.openings[+m[1]], f = op && wallFrame(op.wk, op.wi);
+                    const it = f && layoutOpenings(op.wk, op.wi, f.C).find(x => x.k === +m[1] && x.j === +m[2]);
+                    if (it) { const ll = agentId === 'lint' ? Number(op.ll) || 0 : 0, lr = agentId === 'lint' ? Number(op.lr) || 0 : 0; ref = [along(f, it.u - ll), along(f, it.u + it.w + lr)]; } }
+                else if (agentId === 'slab') ref = o.coords; // perdangų daugiakampiai – tik baigtinumas
+                if (!ref) { miss++; return; } n++; dmax = Math.max(dmax, D(o.coords, ref)); })));
+            return { ok: dmax < 0.001 && !miss, note: n + ' obj. patikrinta, didžiausias nuokrypis ' + fmt(dmax * 1000, 2) + ' mm' + (miss ? ', ' + miss + ' be atitikmens' : '') };
+        },
+        verifyDraw(agentId, objs) { // piešiama atskiroje drobėje ir tikrinami pikseliai objekto vietoje
+            const list = objs.filter(o => o.coords && o.coords.length); if (!list.length) return { ok: true, note: 'nėra ką piešti' };
+            const W = 500, H = 400, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+            const xs = list.flatMap(o => o.coords.map(p => p[0])), ys = list.flatMap(o => o.coords.map(p => p[1]));
+            const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), s = Math.min((W - 40) / Math.max(x1 - x0, 0.1), (H - 40) / Math.max(y1 - y0, 0.1));
+            const v = { s, ox: 20 - x0 * s, oy: H - 20 + y0 * s }; let hit = 0, drawn = 0;
+            list.forEach(o => { c.clearRect(0, 0, W, H); drawn += drawObjs(c, v, [o], 1, null, true); const m = W2S(o.coords.length > 2 ? Kit.lerp(o.coords[0], o.coords[2], 0.5) : Kit.lerp(o.coords[0], o.coords[1], 0.5), v);
+                const px = c.getImageData(Math.max(0, Math.round(m[0]) - 2), Math.max(0, Math.round(m[1]) - 2), 5, 5).data; for (let i = 3; i < px.length; i += 4) if (px[i] > 0) { hit++; break; } });
+            return { ok: hit === list.length && drawn === list.length, note: drawn + ' / ' + list.length + ' nupiešta, ' + hit + ' matoma pikseliuose' };
+        },
+        verifySaved() { save(); try { const p = JSON.parse(localStorage.getItem(STORE_KEY)); return !!(p && p.ks && p.ks.pid === ks().pid && AGENT_IDS.every(id => !ks().results[id] || (p.ks.results[id] && p.ks.results[id].hash === ks().results[id].hash))); } catch (e) { return false; } },
+        markRecheck(ids, reason) { const K = ks(); ids.forEach(id => { if (K.results[id]) K.stale[id] = reason; }); Board.msg('WARNING', 'planner', '*', '', { text: 'Pakartotinė patikra: ' + ids.join(', ') + ' – ' + reason }); save(); }
+    };
+
+    /* ---------- PROJEKTO DOKUMENTAI: keli to paties projekto PDF / nuotraukos ---------- */
+    const IDX = {}; // docId -> puslapių analizė (iš IndexedDB)
+    const Docs = {
+        list: () => ks().docs,
+        member: d => ['PIRMAS', 'AUTO', 'PATVIRTINTA'].includes(d.member),
+        pages() { const out = []; ks().docs.filter(Docs.member).forEach(d => { const P = IDX[d.id]; if (P) P.forEach((f, i) => { if (!(d.superseded || []).includes(i + 1)) out.push({ doc: d, page: i + 1, f }); }); }); return out; },
+        async loadIdx() { for (const d of ks().docs) if (!IDX[d.id]) { const v = await idbGet('idx', d.id); if (v) IDX[d.id] = v; } },
+        async add(files, onProgress, noAsk) {
+            const K = ks(), added = [];
+            for (const f of files) {
+                if (K.docs.some(d => d.name === f.name && d.size === f.size)) { onProgress && onProgress('„' + f.name + '“ jau yra projekte'); continue; }
+                const d = { id: Kit.uid('doc'), name: f.name, size: f.size, type: f.type || (/\.pdf$/i.test(f.name) ? 'application/pdf' : ''), added: Date.now(), pages: 0, status: 'INDEKSUOJAMA', member: K.docs.length ? '?' : 'PIRMAS' };
+                K.docs.push(d); await idbPut('blobs', d.id, f);
+                try { IDX[d.id] = await Docs.index(f, (i, n) => onProgress && onProgress('„' + f.name + '“: ' + i + ' / ' + n + ' psl.'));
+                    d.pages = IDX[d.id].length; d.status = IDX[d.id].every(p => p.read === 'NEPERSKAITYTA') ? 'NEPERSKAITYTA' : 'INDEKSUOTA'; await idbPut('idx', d.id, IDX[d.id]); }
+                catch (e) { d.status = 'KLAIDA'; d.err = String(e && e.message || e).slice(0, 200); }
+                Docs.summarize(d); added.push(d); save();
+            }
+            for (const d of added) await Docs.checkMember(d, noAsk);
+            for (const d of added) if (Docs.member(d)) Docs.onNewDoc(d);
+            save(); return added;
+        },
+        async index(f, prog) { // visi puslapiai: tekstas su vieta → laukai (nuotraukoms ir skenams teksto sluoksnio nėra)
+            if (/^image\//.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name)) { prog && prog(1, 1); return [Object.assign(Kit.analyzeText([]), { image: true })]; }
+            const lib = await pdfLib(), doc = await lib.getDocument({ data: new Uint8Array(await f.arrayBuffer()), isEvalSupported: false }).promise, out = [];
+            for (let p = 1; p <= doc.numPages; p++) { const pg = await doc.getPage(p), vp1 = pg.getViewport({ scale: 1 }), t = await pdfTexts(pg, vp1);
+                const fx = Kit.analyzeText(t); fx.W = vp1.width; fx.H = vp1.height; out.push(fx); pg.cleanup && pg.cleanup(); prog && prog(p, doc.numPages); await new Promise(r => setTimeout(r, 0)); }
+            try { doc.destroy(); } catch (e) { } return out;
+        },
+        summarize(d) { const P = IDX[d.id] || []; const u = a => [...new Set(a)];
+            d.sum = { kinds: u(P.flatMap(p => p.kinds || [])), titles: u(P.map(p => p.title).filter(Boolean)).slice(0, 8), drawingNos: u(P.flatMap(p => p.drawingNos || [])).slice(0, 12), rev: u(P.map(p => p.rev).filter(Boolean)).join(', '),
+                scale: u(P.map(p => p.scale).filter(Boolean)).slice(0, 4), address: u(P.flatMap(p => p.address || [])).slice(0, 3), unread: P.filter(p => p.read === 'NEPERSKAITYTA').length, few: P.filter(p => p.read === 'MAŽAI').length,
+                dims: P.reduce((a, p) => a + (p.dims || []).length, 0), marks: u(P.flatMap(p => p.marks || [])).length, elev: u(P.flatMap(p => p.elev || [])).length }; },
+        async checkMember(d, noAsk) { // skirtingų projektų dokumentai automatiškai nesujungiami
+            const K = ks(), others = K.docs.filter(x => x !== d && Docs.member(x) && IDX[x.id]);
+            if (!others.length) { d.member = 'PIRMAS'; d.memberEv = ['pirmasis projekto dokumentas']; return; }
+            const m = Kit.sigMatch(Kit.signature(IDX[d.id] || []), Kit.signature(others.flatMap(x => IDX[x.id])));
+            if (m.ok) { d.member = 'AUTO'; d.memberEv = m.ev; return; }
+            d.member = '?'; d.memberEv = m.conflict ? ['adresas skiriasi nuo kitų dokumentų'] : ['bendrų požymių nerasta'];
+            if (noAsk) { showToast('„' + d.name + '“: neaišku, ar priklauso projektui – patvirtinkite ⚙️ → 🧠 Agentai → Dokumentai', 4500); return; }
+            const yes = await askUser('Ar „' + d.name + '“ priklauso šiam projektui?', (m.conflict ? '⚠ Dokumento adresas skiriasi nuo kitų projekto dokumentų. ' : 'Nerasta bendro adreso, brėžinių numerių ar pavadinimo. ') + 'Skirtingų projektų dokumentai nesujungiami be jūsų patvirtinimo.', 'Taip, priklauso', 'Ne');
+            d.member = yes ? 'PATVIRTINTA' : 'ATMESTA'; d.memberBy = 'vartotojas'; d.memberT = Date.now();
+            Board.msg(yes ? 'REPORT' : 'WARNING', 'planner', 'vartotojas', '', { text: d.name + ': ' + (yes ? 'priskirtas projektui (vartotojas)' : 'atmestas – į analizę netraukiamas') });
+        },
+        onNewDoc(d) { // naujas PDF / nauja redakcija → kurių agentų rezultatus reikia pertikrinti
+            const K = ks(), P = IDX[d.id] || [], changes = [];
+            K.docs.filter(o => o !== d && Docs.member(o) && IDX[o.id]).forEach(o => IDX[o.id].forEach((op, oi) => P.forEach((np, ni) => {
+                const same = (np.drawingNos || []).filter(x => (op.drawingNos || []).includes(x)); if (!same.length) return;
+                if ((np.rev || '') === (op.rev || '') && d.added < o.added) return;
+                const dimsOld = new Set(op.dims || []), dimsNew = new Set(np.dims || []), gone = [...dimsOld].filter(x => !dimsNew.has(x)), add = [...dimsNew].filter(x => !dimsOld.has(x));
+                const mk = (np.marks || []).filter(x => !(op.marks || []).includes(x)).concat((op.marks || []).filter(x => !(np.marks || []).includes(x)));
+                o.superseded = [...new Set([...(o.superseded || []), oi + 1])]; o.supersededBy = d.id;
+                changes.push({ doc: o.name, page: oi + 1, newPage: ni + 1, no: same[0], rev: (op.rev || '–') + ' → ' + (np.rev || '–'), gone: gone.slice(0, 20), add: add.slice(0, 20), marks: mk.slice(0, 20), kinds: np.kinds || [] }); })));
+            d.changes = changes;
+            const kinds = new Set([...(d.sum && d.sum.kinds || []), ...changes.flatMap(c => c.kinds)]);
+            const map = { fnd: ['fnd'], walls: ['walls', 'fnd', 'open', 'ring'], open: ['open', 'lint'], lint: ['lint'], ring: ['ring'], slab: ['slab'], section: ['fnd', 'walls', 'ring', 'slab'], detail: ['fnd', 'lint', 'ring', 'slab'], spec: ['open', 'lint'] };
+            const ids = [...new Set([...kinds].flatMap(k => map[k] || []))];
+            if (ids.length) Planner.markRecheck(ids, (changes.length ? 'nauja redakcija „' + d.name + '“' : 'naujas dokumentas „' + d.name + '“'));
+            d.recheck = ids;
+        },
+        async remove(id) { const K = ks(), i = K.docs.findIndex(d => d.id === id); if (i < 0) return; K.docs.splice(i, 1); delete IDX[id]; await idbDel('blobs', id); await idbDel('idx', id); save(); },
+        async open(id, page) { const d = ks().docs.find(x => x.id === id); if (!d) return false; const b = await idbGet('blobs', id); if (!b) { showToast('Failo telefone nėra – įkelkite iš naujo', 3000); return false; }
+            const f = b instanceof File ? b : new File([b], d.name, { type: d.type }); closeSubpanel(); await pdfLoadFile(f, true); if (page && PDFU && PDFU.doc && page !== PDFU.page) await pdfLoadPage(page, true); pdfFitView(); requestDraw(); updPdfChip(); return true; },
+        registerFromViewer(f) { if (!f || ks().docs.some(d => d.name === f.name && d.size === f.size)) return; Docs.add([f], null, true).then(() => { if (subOpen() && document.getElementById('ksRoot')) render(); }).catch(() => { }); }
+    };
+    let askHook = null; // testams: automatinis atsakymas
+    function askUser(title, text, yes, no) { if (askHook) return Promise.resolve(askHook(title)); return new Promise(ok => { openSubpanel(title, `<div class="f-note" style="font-size:15px">${esc(text)}</div><div class="f-btns"><button class="f-btn pri" id="kY">${esc(yes)}</button><button class="f-btn" id="kN">${esc(no)}</button></div>`, sp => { sp.querySelector('#kY').onclick = () => { closeSubpanel(); ok(true); }; sp.querySelector('#kN').onclick = () => { closeSubpanel(); ok(false); }; }); }); }
+
+    /* ---------- pataisymai, patvirtinimai, versijos ---------- */
+    function correct(agentId, objId, field, to, reason) {
+        const K = ks(), r = K.results[agentId], o = r && r.objects.find(x => x.id === objId);
+        const c = { id: Kit.uid('kor'), pid: K.pid, agent: agentId, obj: objId, field, from: o ? (field in o.dims ? o.dims[field] : null) : (K.input[agentId] || {})[field], to, reason: reason || '', doc: o && o.src ? o.src.doc || '' : '', page: o && o.src ? o.src.page || 0 : 0, by: 'vartotojas', t: Date.now() };
+        K.corrections.push(c); Board.msg('CORRECTION_REQUEST', 'vartotojas', agentId, '', { obj: objId, field, to, reason });
+        if (agentId === 'fnd' && (field === 'b' || field === 'h')) { K.input.fnd = Object.assign({}, K.input.fnd, { [field]: to, src: 'vartotojas ' + new Date().toLocaleDateString('lt-LT') }); }
+        try { const ex = JSON.parse(localStorage.getItem('kontura_ks_examples') || '[]'); ex.push({ agent: agentId, field, to, t: c.t, project: project.name }); localStorage.setItem('kontura_ks_examples', JSON.stringify(ex.slice(-100))); } catch (e) { }
+        Planner.markRecheck([agentId], 'vartotojo pataisa'); save(); return c;
+    }
+    function examples(agentId) { try { return JSON.parse(localStorage.getItem('kontura_ks_examples') || '[]').filter(e => e.agent === agentId); } catch (e) { return []; } }
+    function approve(agentId) { // tik patikrinti (VERIFIED) objektai; registruojamas šaltinis
+        const K = ks(), r = K.results[agentId]; if (!r) return 0; let n = 0;
+        if (K.stale[agentId] || r.model !== modelHash()) return -1;
+        r.objects.forEach(o => { if (o.status === 'VERIFIED') { o.status = 'APPROVED'; o.approval = { by: 'vartotojas', t: Date.now(), ver: r.ver }; n++; } });
+        K.approvals.push({ agent: agentId, n, ver: r.ver, by: 'vartotojas', t: Date.now() }); Board.msg('REPORT', 'vartotojas', 'planner', '', { text: AG[agentId].name + ': patvirtinta ' + n + ' obj.' }); save(); return n;
+    }
+    function restoreVersion(i) { const K = ks(), h = K.hist[i]; if (!h) return false; const cur = K.results[h.agent]; K.results[h.agent] = h.res; K.hist.splice(i, 1); if (cur) K.hist.push({ t: Date.now(), agent: h.agent, res: cur }); Board.msg('WARNING', 'vartotojas', 'planner', '', { text: 'Atkurta ankstesnė ' + h.agent + ' versija' }); save(); return true; }
+
+    /* ---------- piešimas pagrindiniame lange ---------- */
+    let sel = null;
+    const COL = { fnd: '#8d6e63', walls: '#546e7a', open: '#00897b', lint: '#ef6c00', ring: '#1565c0', slab: '#7b1fa2' };
+    function drawObjs(c, v, list, k, agentId, force) {
+        let n = 0;
+        list.forEach(o => { const id = agentId || o.agent, col = COL[id] || '#000', P = o.coords.map(p => W2S(p, v)); if (!P.length) return; n++;
+            c.save(); c.strokeStyle = col; c.fillStyle = col; c.globalAlpha = force ? 1 : 0.85;
+            if (P.length > 2) { c.globalAlpha = force ? 0.5 : 0.18; c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath(); c.fill(); c.globalAlpha = force ? 1 : 0.6; c.lineWidth = 1.5; c.stroke(); }
+            else { const wpx = id === 'fnd' && o.dims.b ? Math.max(3, o.dims.b * v.s) : (id === 'ring' ? 5 : 4); c.lineWidth = force ? Math.max(wpx, 6) : wpx; if (id === 'fnd' && !o.dims.b) c.setLineDash([10, 6]); c.globalAlpha = force ? 1 : 0.45; c.lineCap = 'butt';
+                c.beginPath(); c.moveTo(P[0][0], P[0][1]); c.lineTo(P[1][0], P[1][1]); c.stroke(); }
+            if (sel && sel.id === o.id && !force) { c.globalAlpha = 1; c.setLineDash([]); c.strokeStyle = '#d50000'; c.lineWidth = 3; const xs = P.map(p => p[0]), ys = P.map(p => p[1]);
+                c.strokeRect(Math.min(...xs) - 8, Math.min(...ys) - 8, Math.max(...xs) - Math.min(...xs) + 16, Math.max(...ys) - Math.min(...ys) + 16); }
+            c.restore(); });
+        return n;
+    }
+    function drawOverlay(c, v) {
+        const K = project.ks; if (!K || K.show === false || !K.results || pdfMode) return;
+        const fl = project.fl || 0;
+        ['slab', 'fnd', 'ring', 'lint'].forEach(id => { const r = K.results[id]; if (!r) return; if (K.layer && K.layer !== id && !(sel && sel.agent === id)) return; drawObjs(c, v, r.objects.filter(o => o.floor === fl && (id !== 'slab' || K.layer === 'slab')), 1, id); });
+        if (sel && sel.agent !== 'fnd' && sel.agent !== 'ring' && sel.agent !== 'lint' && sel.floor === fl) drawObjs(c, v, [sel], 1, sel.agent);
+    }
+
+    /* ---------- vartotojo sąsaja: Planner · Agentai · Board · Dokumentai · Kiekiai · Pataisymai ---------- */
+    let tab = 'planner', agSel = 'fnd', progressTxt = '';
+    const stCol = s => ({ OK: '#2e7d32', COMPLETED: '#2e7d32', VERIFIED: '#2e7d32', APPROVED: '#1b5e20', 'ĮSPĖJIMAS': '#b26a00', NEEDS_DATA: '#b26a00', NEEDS_REVIEW: '#b26a00', PROPOSED: '#b26a00', KLAIDA: '#c62828', FAILED: '#c62828', NETIKRINTA: '#78909c', IDLE: '#78909c', INFO: '#455a64' }[s] || '#455a64');
+    const badge = (s, txt) => `<span style="display:inline-block;padding:1px 7px;border-radius:9px;font-size:12px;font-weight:700;color:#fff;background:${stCol(s)}">${esc(txt || s)}</span>`;
+    const tbl = (head, rows) => `<table class="rp-otab" style="width:100%;font-size:13px"><tr>${head.map((h, i) => `<th${i ? '' : ' class="l"'}>${h}</th>`).join('')}</tr>${rows.join('')}</table>`;
+    async function open(t) { if (t) tab = t; await sync(); render(); }
+    function render() {
+        const K = ks(), cur = modelHash();
+        const tabs = [['planner', '📋 Planner'], ['agents', '🤖 Agentai'], ['docs', '📚 Dokumentai (' + K.docs.length + ')'], ['qty', '📊 Kiekiai'], ['board', '📡 Board'], ['kor', '✎ Pataisymai']];
+        let h = `<div id="ksRoot"><div class="chips" style="flex-wrap:wrap">${tabs.map(([k, t]) => `<div class="chip${tab === k ? ' on' : ''}" data-tab="${k}">${t}</div>`).join('')}</div>`;
+        if (progressTxt) h += `<div class="f-note" style="background:#e3f2fd;font-weight:700">${esc(progressTxt)}</div>`;
+        if (tab === 'planner') {
+            const P = K.plan;
+            h += `<div class="f-note">Planner sudaro planą (su priklausomybėmis), duoda užduotis, tikrina rezultatus, grąžina klaidas taisyti ir perkelia patikrintus duomenis į projektą. „Atlikta“ rodoma tik kai rezultatas perduotas, koordinatės ir atvaizdavimas patikrinti, projektas išsaugotas.</div>
+              <div class="f-label">Ką analizuoti</div><div class="chips" style="flex-wrap:wrap">${AGENT_IDS.map(id => `<div class="chip${(K.want || AGENT_IDS).includes(id) ? ' on' : ''}" data-want="${id}">${AG[id].icon} ${AG[id].name.replace(' agentas', '')}</div>`).join('')}</div>
+              <div class="f-btns"><button class="f-btn pri" id="ksRun">▶ Paleisti Planner</button><button class="f-btn" id="ksShow">${K.show === false ? '👁 Rodyti rezultatus plane' : '🙈 Slėpti iš plano'}</button></div>
+              <div class="f-label">Plane rodyti</div><div class="chips" style="flex-wrap:wrap">${[['', 'pamatai + žiedai + sąramos'], ['fnd', '🏗️ pamatai'], ['ring', '🌀 žiedai'], ['lint', '🧱 sąramos'], ['slab', '🟫 perdangos']].map(([k, t]) => `<div class="chip${(K.layer || '') === k ? ' on' : ''}" data-layer="${k}">${t}</div>`).join('')}</div>`;
+            const stale = Object.keys(K.stale); if (stale.length) h += `<div class="f-note" style="background:#fff3e0">⚠ Reikia pertikrinti: ${stale.map(id => AG[id].name + ' – ' + esc(K.stale[id])).join('; ')}</div>`;
+            if (P) {
+                const old = P.model !== cur;
+                h += `<div class="f-label">Paskutinis planas ${new Date(P.t).toLocaleString('lt-LT')}${old ? ' · <span style="color:#b26a00">⚠ projektas pakeistas po analizės</span>' : ''}</div>` + tbl(['Agentas', 'Būsena', 'Perdavimas', ''], P.steps.map(s => { const a = AG[s.agent], tr = (P.transfer || {})[s.agent];
+                    return `<tr><td class="l">${a.icon} ${esc(a.name)}<br><small>${esc(s.reason)}${s.corrected ? ' · ↩ taisyta' : ''}</small></td><td>${badge(s.final || s.state, ST_TXT[s.final || s.state])}</td><td>${tr ? (tr.ok ? badge('OK', '✔ perduota') : badge('KLAIDA', '✖ ' + (tr.why || ''))) : '–'}<br><small>${tr ? esc((tr.coord || '') + '; ' + (tr.draw || '')) : ''}</small></td><td>${s.done && !old ? badge('COMPLETED', 'UŽBAIGTA') : badge('NETIKRINTA', 'neužbaigta')}</td></tr>`; }));
+                if ((P.review || []).length) h += `<div class="f-label">Planner patikra – grąžinta taisyti</div><div class="f-note">${P.review.map(esc).join('<br>')}</div>`;
+                h += `<div class="f-note">Išsaugota telefone: ${P.saved ? '✔ taip (patikrinta nuskaičius)' : '✖ ne – naudokite ⚙️ → 💾'}</div>`;
+            }
+            const appr = Board.log.filter(m => m.type === 'APPROVAL_REQUEST').slice(-5); if (appr.length) h += `<div class="f-label">Patvirtinimo prašymai</div><div class="f-note">${appr.map(m => esc(m.content.text)).join('<br>')}</div>`;
+            const errs = Board.log.filter(m => m.type === 'ERROR').slice(-5); if (errs.length) h += `<div class="f-label">Klaidos</div><div class="f-note" style="color:#c62828">${errs.map(m => esc(m.from + ': ' + m.content.text)).join('<br>')}</div>`;
+        }
+        if (tab === 'agents') {
+            const a = AG[agSel], r = K.results[agSel];
+            h += `<div class="chips" style="flex-wrap:wrap">${AGENT_IDS.map(id => `<div class="chip${agSel === id ? ' on' : ''}" data-ag="${id}">${AG[id].icon} ${AG[id].name.replace(' agentas', '')}</div>`).join('')}</div>
+              <div class="f-note"><b>${a.icon} ${esc(a.name)}</b> – ${esc(a.area)}<br>Būsena: ${badge(a.state, ST_TXT[a.state])}${a.task ? ' · užduotis ' + esc(a.task.id) : ''}${a.deps.length ? '<br>Skaito iš Board: ' + a.deps.map(d => AG[d].name).join(', ') : ''}</div>`;
+            if (agSel === 'fnd') { const inp = K.input.fnd || {}, ex = examples('fnd').slice(-3);
+                h += `<div class="f-label">Pamato skerspjūvis (patvirtinimas – vartotojo)</div><div style="display:flex;gap:8px"><input id="ksB" class="f-input" inputmode="decimal" placeholder="plotis b, m" value="${inp.b ? hvTxt(inp.b) : ''}"><input id="ksH" class="f-input" inputmode="decimal" placeholder="aukštis h, m" value="${inp.h ? hvTxt(inp.h) : ''}"></div>
+                  <div class="f-btns"><button class="f-btn pri" id="ksFndOk">✔ Įrašyti ir patvirtinti</button></div>` +
+                  (r && r.candidates && r.candidates.length ? `<div class="f-note">Rasta dokumentuose (nepatvirtinta): ${r.candidates.map((c, i) => `<button class="f-btn" data-cand="${i}" style="width:auto;padding:4px 8px;margin:2px">${Math.round(c.b * 1000)}×${Math.round(c.h * 1000)} · ${esc(c.docName)} ${c.page} psl.</button>`).join('')}</div>` : '') +
+                  (ex.length ? `<div class="f-note">Ankstesni patvirtinti pavyzdžiai (tik informacija): ${ex.map(e => esc(e.field + '=' + e.to + ' (' + (e.project || '') + ')')).join(', ')}</div>` : ''); }
+            if (a.steps.length) h += `<div class="f-label">Analizės eiga</div><div class="f-note" style="max-height:120px;overflow:auto">${a.steps.slice(-12).map(s => esc(s.text)).join('<br>')}</div>`;
+            if (r) {
+                if (r.needs.length) h += `<div class="f-label">Trūksta duomenų</div><div class="f-note" style="background:#fff3e0">${r.needs.map(esc).join('<br>')}</div>`;
+                if (r.issues.length) h += `<div class="f-label">Neatitikimai</div><div class="f-note">${r.issues.slice(0, 30).map(i => badge(i.level === 'INFO' ? 'INFO' : i.level, i.level) + ' ' + esc(i.text)).join('<br>')}</div>`;
+                h += `<div class="f-label">Patikros</div>` + tbl(['Patikra', 'Būsena'], r.checks.map(c => `<tr><td class="l">${esc(c.name)}${c.note ? '<br><small>' + esc(c.note) + '</small>' : ''}</td><td>${badge(c.status)}</td></tr>`));
+                h += `<div class="f-label">Aptikti objektai (${r.objects.length}) – paspauskite, kad matytumėte kilmę</div>` + tbl(['Objektas', 'Aukštas', 'Būsena'], r.objects.slice(0, 150).map(o => `<tr data-obj="${esc(o.id)}" style="cursor:pointer"><td class="l">${esc(o.label)} · ${esc(o.type)}${o.pending ? ' <b style="color:#b26a00">(yra nauja versija)</b>' : ''}</td><td>${o.floor + 1}</td><td>${badge(o.status, OBJ_TXT[o.status])}</td></tr>`));
+                h += `<div class="f-btns"><button class="f-btn pri" id="ksAppr">✔ Patvirtinti patikrintus</button><button class="f-btn" id="ksRun1">▶ Tik šis agentas</button></div>`;
+            } else h += `<div class="f-btns"><button class="f-btn pri" id="ksRun1">▶ Paleisti šį agentą</button></div>`;
+        }
+        if (tab === 'docs') {
+            h += `<div class="f-note">Vienas projektas – keli to paties statinio PDF (architektūra, konstrukcijos, pjūviai, mazgai, specifikacijos) ir nuotraukos. Indeksuojami <b>visi puslapiai</b>; visi agentai mato visus dokumentus. Skenuotuose PDF ir nuotraukose teksto sluoksnio nėra – jie pažymimi „neperskaityta“ (atpažinimas OCR šioje versijoje neįdiegtas).</div>
+              <div class="f-btns"><button class="f-btn pri" id="ksAdd">➕ Pridėti PDF / nuotraukas</button></div>`;
+            h += K.docs.length ? tbl(['Dokumentas', 'Puslapiai', 'Projektui'], K.docs.map(d => { const s = d.sum || {};
+                return `<tr><td class="l"><b>${esc(d.name)}</b><br><small>${esc((s.kinds || []).map(k => Kit.KIND_TXT[k]).join(', ') || 'turinys neatpažintas')}${s.drawingNos && s.drawingNos.length ? ' · ' + esc(s.drawingNos.slice(0, 3).join(', ')) : ''}${s.rev ? ' · laida ' + esc(s.rev) : ''}${s.scale && s.scale.length ? ' · M 1:' + s.scale.join(', 1:') : ''}<br>matmenų ${s.dims || 0}, žymių ${s.marks || 0}, altitudžių ${s.elev || 0}${s.unread ? ' · <b style="color:#b26a00">neperskaityta ' + s.unread + ' psl.</b>' : ''}${s.few ? ' · mažai teksto ' + s.few + ' psl.' : ''}${(d.superseded || []).length ? ' · <b style="color:#b26a00">pakeista naujesne redakcija: ' + d.superseded.join(', ') + ' psl.</b>' : ''}${d.err ? ' · klaida: ' + esc(d.err) : ''}</small>
+                  <div><button class="f-btn" data-dopen="${d.id}" style="width:auto;padding:3px 8px;margin:2px">📄 Rodyti</button><button class="f-btn" data-dinfo="${d.id}" style="width:auto;padding:3px 8px;margin:2px">🔎 Laukai</button><button class="f-btn" data-ddel="${d.id}" style="width:auto;padding:3px 8px;margin:2px">🗑</button></div></td>
+                  <td>${d.pages}<br>${badge(d.status === 'INDEKSUOTA' ? 'OK' : (d.status === 'KLAIDA' ? 'KLAIDA' : 'ĮSPĖJIMAS'), d.status)}</td><td>${badge(d.member === 'ATMESTA' ? 'KLAIDA' : (d.member === '?' ? 'ĮSPĖJIMAS' : 'OK'), { PIRMAS: 'pirmas', AUTO: 'atpažinta', PATVIRTINTA: 'patvirtino vartotojas', ATMESTA: 'atmesta', '?': 'neaišku' }[d.member] || d.member)}<br><small>${esc((d.memberEv || []).join('; '))}</small>${d.member === 'ATMESTA' || d.member === '?' ? `<br><button class="f-btn" data-dacc="${d.id}" style="width:auto;padding:3px 8px">priskirti</button>` : ''}${d.member === '?' ? `<button class="f-btn" data-drej="${d.id}" style="width:auto;padding:3px 8px">atmesti</button>` : ''}</td></tr>`; })) : '<div class="f-note">Dokumentų dar nėra.</div>';
+            const ch = K.docs.filter(d => (d.changes || []).length); if (ch.length) h += `<div class="f-label">Redakcijų pakeitimai</div><div class="f-note">${ch.flatMap(d => d.changes.map(c => esc(c.no + ' (' + c.rev + '): ' + c.doc + ' ' + c.page + ' psl. → ' + d.name + ' ' + c.newPage + ' psl.; dingo matmenų: ' + (c.gone.join(', ') || '–') + '; nauji: ' + (c.add.join(', ') || '–') + (c.marks.length ? '; žymės: ' + c.marks.join(', ') : '')))).join('<br>')}${'<br>Pažymėta pertikrinti: ' + esc([...new Set(ch.flatMap(d => d.recheck || []))].map(id => AG[id].name).join(', '))}</div>`;
+        }
+        if (tab === 'qty') {
+            const rows = []; AGENT_IDS.forEach(id => { const r = K.results[id]; if (!r) return; r.qty.forEach(q => rows.push({ id, q, st: r.objects.some(o => o.status === 'PROPOSED') ? 'PROPOSED' : (r.objects.length && r.objects.every(o => o.status === 'APPROVED') ? 'APPROVED' : 'VERIFIED') })); });
+            h += `<div class="f-note">Suvestinė pagal aukštus, konstrukcijas ir vienetus. Kiekviena eilutė – su agentu ir būsena; išsamią kilmę rodo „🤖 Agentai“ → objektas.</div>`;
+            floorsList().forEach(k => { const fr = rows.filter(x => x.q.floor === k); if (!fr.length) return; h += `<div class="f-label">${esc(floorName(k))}</div>` + tbl(['Konstrukcija', 'Kiekis', 'Agentas'], fr.map(x => `<tr><td class="l">${esc(x.q.name)}</td><td>${x.q.v == null ? '–' : fmt(x.q.v, x.q.unit === 'm³' ? 3 : 2)} ${esc(x.q.unit)}</td><td>${AG[x.id].icon} ${badge(x.st, OBJ_TXT[x.st])}</td></tr>`)); });
+            h += `<div class="f-btns"><button class="f-btn pri" id="ksCsv">📊 Eksportuoti (CSV → Excel)</button><button class="f-btn" id="ksJson">💾 Atsarginė kopija (JSON)</button></div>`;
+        }
+        if (tab === 'board') {
+            const L = Board.log.slice(-60).reverse();
+            h += `<div class="f-note">Pranešimų: ${Board.log.length} · užklausų: ${Board.log.filter(m => m.type === 'QUERY').length} · konfliktų: ${Board.conflicts.length}</div><div class="f-label">Duomenų versijos</div>` +
+                tbl(['Tema', 'Versija', 'Obj.'], Board.versions().map(v => `<tr><td class="l">${esc(v.topic)}<br><small>${esc(v.by)} · ${new Date(v.t).toLocaleTimeString('lt-LT')} · #${esc(v.hash)}</small></td><td>v${v.ver}</td><td>${v.n}</td></tr>`)) +
+                (Board.conflicts.length ? `<div class="f-label">Konfliktai</div><div class="f-note">${Board.conflicts.slice(-10).map(c => esc(c.text + ' (' + c.a + ' / ' + c.b + ')')).join('<br>')}</div>` : '') +
+                `<div class="f-label">Pranešimų istorija</div>` + tbl(['Tipas', 'Nuo → kam', 'Turinys'], L.map(m => `<tr><td class="l">${badge(m.type === 'ERROR' ? 'KLAIDA' : (m.type === 'WARNING' ? 'ĮSPĖJIMAS' : 'INFO'), m.type)}<br><small>${new Date(m.t).toLocaleTimeString('lt-LT')}</small></td><td>${esc(m.from)} → ${esc(m.to)}</td><td class="l"><small>${esc(JSON.stringify(m.content).slice(0, 160))}</small></td></tr>`));
+        }
+        if (tab === 'kor') {
+            h += `<div class="f-note">Patvirtinti vartotojo pataisymai saugomi su projekto ID, dokumentu, puslapiu, agentu, pirmine ir pataisyta reikšme. Bendros taisyklės automatiškai nekeičiamos – ankstesni pavyzdžiai agentams rodomi tik kaip informacija.</div>` +
+                (K.corrections.length ? tbl(['Pataisymas', 'Kada'], K.corrections.slice(-40).reverse().map(c => `<tr><td class="l">${esc(AG[c.agent] ? AG[c.agent].name : c.agent)} · ${esc(c.obj || '')} ${esc(c.field)}: ${esc(String(c.from))} → <b>${esc(String(c.to))}</b>${c.reason ? '<br><small>' + esc(c.reason) + '</small>' : ''}</td><td><small>${new Date(c.t).toLocaleString('lt-LT')}<br>${esc(c.by)}</small></td></tr>`)) : '<div class="f-note">Pataisymų dar nėra.</div>') +
+                `<div class="f-label">Ankstesnės rezultatų versijos (${K.hist.length})</div>` + (K.hist.length ? tbl(['Versija', ''], K.hist.map((x, i) => `<tr><td class="l">${esc(AG[x.agent] ? AG[x.agent].name : x.agent)} v${x.res.ver} · ${new Date(x.t).toLocaleString('lt-LT')}</td><td><button class="f-btn" data-hist="${i}" style="width:auto;padding:3px 8px">↶ atkurti</button></td></tr>`)) : '<div class="f-note">Nėra.</div>');
+        }
+        h += `<div class="f-btns"><button class="f-btn" id="ksX">Uždaryti</button></div></div>`;
+        openSubpanel('🧠 Agentų sistema · 6 + Planner', h, bind);
+    }
+    function bind(sp) {
+        const K = ks(), on = (sel, fn) => sp.querySelectorAll(sel).forEach(el => { el.onclick = () => fn(el); });
+        on('[data-tab]', el => { tab = el.dataset.tab; render(); });
+        on('[data-want]', el => { const w = new Set(K.want || AGENT_IDS); w.has(el.dataset.want) ? w.delete(el.dataset.want) : w.add(el.dataset.want); K.want = AGENT_IDS.filter(x => w.has(x)); save(); render(); });
+        on('[data-ag]', el => { agSel = el.dataset.ag; render(); });
+        on('#ksX', () => closeSubpanel());
+        on('#ksShow', () => { K.show = K.show === false; save(); requestDraw(); render(); });
+        const go = async want => { if (!want.length) { showToast('Pasirinkite bent vieną agentą', 2000); return; } await sync(); const P = await Planner.run(want, t => { progressTxt = t; if (document.getElementById('ksRoot')) render(); }); progressTxt = ''; requestDraw(); render(); if (P) showToast('Planner: ' + P.steps.filter(s => s.done).length + ' / ' + P.steps.length + ' užbaigta', 2600); };
+        on('#ksRun', () => go(K.want || AGENT_IDS)); on('#ksRun1', () => go([agSel]));
+        on('#ksAppr', () => { const n = approve(agSel); showToast(n < 0 ? 'Rezultatas pasenęs – pirmiausia paleiskite iš naujo' : 'Patvirtinta: ' + n + ' obj.', 2400); render(); });
+        on('#ksFndOk', () => { const b = parseNum(sp.querySelector('#ksB').value), hh = parseNum(sp.querySelector('#ksH').value); if (!(b > 0.1 && b < 3 && hh > 0.1 && hh < 5)) { showToast('Įveskite plotį ir aukštį metrais (pvz. 0,60 ir 0,40)', 2800); return; }
+            correct('fnd', '', 'b', b, 'vartotojo įvestas skerspjūvis'); correct('fnd', '', 'h', hh, 'vartotojo įvestas skerspjūvis'); showToast('Įrašyta – paleiskite Planner iš naujo', 2400); render(); });
+        on('[data-cand]', el => { const r = K.results.fnd, c = r && r.candidates[+el.dataset.cand]; if (!c) return; sp.querySelector('#ksB').value = hvTxt(c.b); sp.querySelector('#ksH').value = hvTxt(c.h); showToast('Patikrinkite brėžinyje (' + c.docName + ' ' + c.page + ' psl.) ir spauskite „Įrašyti“', 3200); });
+        on('[data-obj]', el => proof(agSel, el.dataset.obj));
+        on('#ksAdd', () => { const fi = document.createElement('input'); fi.type = 'file'; fi.multiple = true; fi.accept = 'application/pdf,.pdf,image/*'; fi.onchange = async () => { const fs = [...(fi.files || [])]; if (!fs.length) return; await Docs.add(fs, t => { progressTxt = t; if (document.getElementById('ksRoot')) render(); }); progressTxt = ''; tab = 'docs'; render(); }; fi.click(); });
+        on('[data-dopen]', el => Docs.open(el.dataset.dopen));
+        on('[data-ddel]', el => confirmBox('Pašalinti dokumentą?', 'Dokumentas ir jo indeksas bus pašalinti iš projekto.', 'Pašalinti', async () => { await Docs.remove(el.dataset.ddel); render(); }));
+        on('[data-dacc]', el => { const d = K.docs.find(x => x.id === el.dataset.dacc); if (d) { d.member = 'PATVIRTINTA'; d.memberBy = 'vartotojas'; Docs.onNewDoc(d); save(); render(); } });
+        on('[data-drej]', el => { const d = K.docs.find(x => x.id === el.dataset.drej); if (d) { d.member = 'ATMESTA'; d.memberBy = 'vartotojas'; save(); render(); } });
+        on('[data-dinfo]', el => docInfo(el.dataset.dinfo));
+        on('[data-layer]', el => { K.layer = el.dataset.layer; save(); requestDraw(); render(); });
+        on('[data-hist]', el => { restoreVersion(+el.dataset.hist); requestDraw(); render(); });
+        on('#ksCsv', exportCsv); on('#ksJson', exportJson);
+    }
+    function proof(agentId, id) { // rezultato įrodymas: iš kur gauta, kokie matmenys, skaičiavimo eiga
+        const r = ks().results[agentId], o = r && r.objects.find(x => x.id === id); if (!o) return;
+        const s = o.src || {}, d = s.doc ? ks().docs.find(x => x.id === s.doc) : null;
+        openSubpanel('🔎 ' + o.label + ' – kilmė', `<div class="f-note"><b>${esc(o.type)}</b> · ${esc(floorName(o.floor))} · ${badge(o.status, OBJ_TXT[o.status])}${o.approval ? ' · patvirtino ' + esc(o.approval.by) + ' ' + new Date(o.approval.t).toLocaleString('lt-LT') : ''}</div>
+          <div class="f-label">Šaltinis</div><div class="f-note">${esc(s.how || '')}: ${esc(s.what || '')}${d ? '<br>📄 ' + esc(d.name) + ', ' + s.page + ' psl.' + (s.dimTxt ? ' · matmuo ' + esc(s.dimTxt) : '') : ''}<br>Agentas: ${esc(AG[o.agent].name)} · versija ${o.ver} · patikimumas ${Math.round(o.conf * 100)} %</div>
+          <div class="f-label">Matmenys</div><div class="f-note">${Object.keys(o.dims).filter(k => o.dims[k] != null && o.dims[k] !== '').map(k => esc(k) + ' = ' + esc(typeof o.dims[k] === 'number' ? fmt(o.dims[k], 3) : String(o.dims[k]))).join(' · ')}</div>
+          <div class="f-label">Skaičiavimo eiga</div><div class="f-note">${(o.calc || []).map(esc).join('<br>')}</div>
+          <div class="f-label">Koordinatės (statinio, m)</div><div class="f-note" style="font-size:12px">${o.coords.map(p => '(' + fmt(p[0], 3) + '; ' + fmt(p[1], 3) + ')').join(' ')}</div>
+          <div class="f-btns"><button class="f-btn pri" id="kpShow">📍 Rodyti plane</button>${d ? '<button class="f-btn" id="kpDoc">📄 Atidaryti brėžinį</button>' : ''}<button class="f-btn" id="kpFix">✎ Pataisyti</button><button class="f-btn" id="kpBack">Atgal</button></div>`, sp => {
+            sp.querySelector('#kpShow').onclick = () => { sel = o; closeSubpanel(); if (floorCount() > 1 && o.floor !== project.fl) setFloor(o.floor, true); if (view3d) set3d(false); if (sideView) setSide(false);
+                const xs = o.coords.map(p => p[0]), ys = o.coords.map(p => p[1]); const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2; view.ox = innerWidth / 2 - cx * view.s; view.oy = innerHeight / 2 + cy * view.s; userMovedView = true; requestDraw(); showToast(o.label + ' – pažymėta raudonai', 2200); };
+            const kd = sp.querySelector('#kpDoc'); if (kd) kd.onclick = () => Docs.open(d.id, s.page);
+            sp.querySelector('#kpFix').onclick = () => fixDialog(agentId, o);
+            sp.querySelector('#kpBack').onclick = render; });
+    }
+    function fixDialog(agentId, o) { // pataisymas brėžinyje: geometriją taiso atsakingas agentas (per projekto modelį), čia registruojama
+        const fields = Object.keys(o.dims).filter(k => typeof o.dims[k] === 'number' || o.dims[k] == null);
+        openSubpanel('✎ Pataisyti ' + o.label, `<div class="f-note">Pataisymas registruojamas istorijoje ir agentas perskaičiuoja priklausomus objektus. Sienų, angų geometriją taisykite pagrindiniame lange (bakstelėję sieną) – agentai ją perskaitys iš naujo.</div>
+          <div class="f-label">Laukas</div><select id="kfF" class="f-input">${fields.map(k => `<option>${esc(k)}</option>`).join('')}</select>
+          <div class="f-label">Teisinga reikšmė</div><input id="kfV" class="f-input" inputmode="decimal"><div class="f-label">Priežastis</div><input id="kfR" class="f-input" placeholder="pvz. brėžinyje K-3 rostverkas 500">
+          <div class="f-btns"><button class="f-btn pri" id="kfOk">✔ Įrašyti</button><button class="f-btn" id="kfX">Atšaukti</button></div>`, sp => {
+            sp.querySelector('#kfOk').onclick = () => { const f = sp.querySelector('#kfF').value, v = parseNum(sp.querySelector('#kfV').value); if (!isFinite(v)) { showToast('Įveskite skaičių', 2000); return; }
+                correct(agentId, o.id, f, v, sp.querySelector('#kfR').value.slice(0, 200)); showToast('Pataisymas įrašytas – ' + AG[agentId].name + ' pažymėtas pertikrinti', 2600); tab = 'kor'; render(); };
+            sp.querySelector('#kfX').onclick = () => proof(agentId, o.id); });
+    }
+    async function docInfo(id) {
+        await Docs.loadIdx(); const d = ks().docs.find(x => x.id === id), P = IDX[id] || [];
+        openSubpanel('🔎 ' + (d ? d.name : ''), P.map((p, i) => `<div class="f-label">${i + 1} psl. · ${badge(p.read === 'TEKSTAS' ? 'OK' : (p.read === 'MAŽAI' ? 'ĮSPĖJIMAS' : 'KLAIDA'), p.read === 'TEKSTAS' ? 'perskaityta' : (p.read === 'MAŽAI' ? 'mažai teksto' : 'neperskaityta'))}${(d.superseded || []).includes(i + 1) ? ' ' + badge('ĮSPĖJIMAS', 'pakeista') : ''}</div>
+          <div class="f-note" style="font-size:12.5px">${esc(p.title || '–')}<br>Turinys: ${esc((p.kinds || []).map(k => Kit.KIND_TXT[k]).join(', ') || '–')} · mastelis ${p.scale ? '1:' + p.scale : '–'} · laida ${esc(p.rev || '–')}<br>Brėžinių Nr.: ${esc((p.drawingNos || []).join(', ') || '–')}<br>Ašių kandidatai: ${esc((p.axes || []).join(' ') || '–')}<br>Matmenys (${(p.dims || []).length}): ${esc((p.dims || []).slice(0, 30).join(' '))}<br>Altitudės: ${esc((p.elev || []).join(' ') || '–')}<br>Žymės: ${esc((p.marks || []).join(' ') || '–')}<br>Dydžiai: ${esc((p.sizes || []).slice(0, 20).join(' ') || '–')}<br>Medžiagos: ${esc((p.materials || []).join(', ') || '–')}<br>Nuorodos: ${esc((p.refs || []).join(', ') || '–')}<br>Adresas: ${esc((p.address || []).join(', ') || '–')}</div>`).join('') + `<div class="f-btns"><button class="f-btn" id="kiB">Atgal</button></div>`, sp => { sp.querySelector('#kiB').onclick = render; });
+    }
+    function exportCsv() {
+        const K = ks(), q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"', L = [['Aukštas', 'Konstrukcija', 'Kiekis', 'Vnt.', 'Agentas', 'Versija', 'Būsena', 'Šaltinis'].map(q).join(';')];
+        AGENT_IDS.forEach(id => { const r = K.results[id]; if (!r) return; r.qty.forEach(x => L.push([floorName(x.floor), x.name, x.v == null ? '' : String(Kit.r3(x.v)).replace('.', ','), x.unit, AG[id].name, 'v' + r.ver, r.state, 'projekto modelis + ' + K.docs.filter(Docs.member).map(d => d.name).join(', ')].map(q).join(';'))); });
+        L.push(''); L.push(['Objektas', 'Tipas', 'Aukštas', 'Būsena', 'Matmenys', 'Skaičiavimas', 'Agentas'].map(q).join(';'));
+        AGENT_IDS.forEach(id => { const r = K.results[id]; if (!r) return; r.objects.forEach(o => L.push([o.label, o.type, floorName(o.floor), OBJ_TXT[o.status], JSON.stringify(o.dims), (o.calc || []).join(' | '), AG[id].name].map(q).join(';'))); });
+        download(safeName() + '_kiekiai.csv', new Blob(['﻿' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' })); showToast('CSV išsaugotas (atsidaro Excel)', 2400);
+    }
+    async function exportJson() { await Docs.loadIdx(); const ix = {}; ks().docs.forEach(d => { ix[d.id] = IDX[d.id]; });
+        download(safeName() + '.kontura-agentai.json', new Blob([JSON.stringify({ project, board: { data: Board.data, log: Board.log, conflicts: Board.conflicts }, index: ix }, null, 1)], { type: 'application/json' })); showToast('Atsarginė kopija išsaugota (be PDF failų)', 2600); }
+
+    async function init() { ks(); await Board.restore(); await Docs.loadIdx(); const A = ks().agents; AGENT_IDS.forEach(id => { AG[id].state = 'IDLE'; AG[id].task = null; AG[id].steps = []; AG[id].last = null; AG[id].restoreState(A[id]); }); }
+    async function sync() { if (Board.pid !== ks().pid) await init(); else await Docs.loadIdx(); } // kitas projektas (naujas / įkeltas failas) – sava Board istorija
+    return { Kit, Board, Agent, AG, Planner, Docs, IDX, init, sync, open, render, drawOverlay, sanitize, modelHash, correct, approve, restoreVersion, examples, ks, setAsk: f => { askHook = f; }, get sel() { return sel; }, set sel(v) { sel = v; } };
+})();
+
+/* =========================================================
    PALEIDIMAS
    ========================================================= */
 load(); resize();
 if (!storageOk()) setTimeout(() => showToast('⚠ Šiame lange telefono atmintis nepasiekiama – darbą išsaugokite failu (⚙️ → 💾)', 5000), 600);
 computeAll();
 updateStatus(); setMode('move'); fitView(); requestDraw();
+KS.init().then(requestDraw).catch(() => { });
 window.__app = { innerAt: (j, f) => { const r = RI.walls[j]; return W2S([r.a[0] + (r.b[0] - r.a[0]) * f, r.a[1] + (r.b[1] - r.a[1]) * f], view); }, get project() { return project; }, get R() { return R; }, get RI() { return RI; }, get pendingStart() { return pendingStart; }, excelText, Geo, changed: () => changed(true), contourEnds,
     innerMid: j => { const r = RI.walls[j]; const a = W2S(r.a, view), b = W2S(r.b, view); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; },
     facePoint: (i, frac, side) => { const w = R.walls[i]; const A = side === 'out' ? w.oa : w.ia, B = side === 'out' ? w.ob : w.ib; const p = [A[0] + (B[0] - A[0]) * frac, A[1] + (B[1] - A[1]) * frac]; return W2S(p, view); }, wallMid: i => { const w = R.walls[i]; const a = W2S(w.a, view), b = W2S(w.b, view); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; } };
