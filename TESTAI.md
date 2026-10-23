@@ -2,9 +2,9 @@
 
 Data: 2026-10-23 · Aplinka: Chromium (Playwright), telefono ekranas 412×860 · Failas: `kontura.html`
 
-Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cjs`, `node tests/axes.cjs`, `node tests/fnd.cjs`, `node tests/draw.cjs`, tada `node tests/ataskaita.cjs`.
+Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cjs`, `node tests/axes.cjs`, `node tests/fnd.cjs`, `node tests/draw.cjs`, `node tests/sees.cjs`, tada `node tests/ataskaita.cjs`.
 
-**Iš viso – PASISEKĖ: 95 · NEPAVYKO: 0 · NETESTUOTA: 5**
+**Iš viso – PASISEKĖ: 103 · NEPAVYKO: 0 · NETESTUOTA: 5**
 
 > Bandyta su testui sugeneruotais PDF ir vaizdais bei programos pavyzdžiais (📐 pavyzdys, 🏢 5 aukštų). OCR laikai – kompiuterio Chromium; telefone bus lėčiau. **Su tikrais statybiniais brėžiniais netestuota.** Specifikacijos 20 skyriaus punktai 11 (ašys) ir 12 (mastelis) tikrinami skyriuje „Ašys“ (A1–A16b).
 
@@ -36,8 +36,8 @@ Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cj
 | 20b | „Užbaigta“ rodoma tik patikrintiems ir perduotiems rezultatams | ✅ PASISEKĖ | neužbaigti: fnd:NEEDS_DATA |
 | 23 | Pataisymai registruojami (ir agentas perskaičiuoja) | ✅ PASISEKĖ | {"st":"COMPLETED","v":{"floor":0,"name":"Pamatų betonas","unit":"m³","v":11.171600000000002},"L":55.858000000000004,"n":2} |
 | 23a | Vartotojo patvirtinti duomenys apsaugoti (nauja versija laukia sprendimo) | ✅ PASISEKĖ | {"n":11,"st":"APPROVED","pending":true,"req":1} |
-| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvli7vuyjglhy","h":"15u47l1","docs":4,"saved":true,"log":174} |
-| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvli7vuyjglhy","h":"15u47l1","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
+| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvlit6la4lsfx","h":"133vp2d","docs":4,"saved":true,"log":174} |
+| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvlit6la4lsfx","h":"133vp2d","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
 | 22a | Projekto failas (💾 .json) išsaugo ir atkuria agentų duomenis | ✅ PASISEKĖ |  |
 | 24 | Naujas PDF inicijuoja reikalingas pakartotines patikras | ✅ PASISEKĖ | pakeitimai: [{"no":"SRBS32-01-TDP-SK-01","rev":"0 → 1","add":[12500]}]; pertikrinti: fnd |
 | 24a | Pakeistos redakcijos puslapis nebenaudojamas (rostverkas 500, ne 600) | ✅ PASISEKĖ | kandidatai: 500 |
@@ -52,14 +52,14 @@ Skenas: A4 lapas 2480×1754 px (≈212 DPI), tik paveikslėlis, be teksto sluoks
 
 | Nr. | Testas | Rezultatas | Pastaba |
 |---|---|---|---|
-| O1 | Skenuotas PDF: tekstas atpažįstamas OCR (be interneto) | ✅ PASISEKĖ | OCR, 23 žodžių, vid. patikimumas 94 %, neaiškių 0, laikas 5 s |
+| O1 | Skenuotas PDF: tekstas atpažįstamas OCR (be interneto) | ✅ PASISEKĖ | OCR, 23 žodžių, vid. patikimumas 94 %, neaiškių 0, laikas 4 s |
 | O2 | Skenas: mastelis, brėžinio Nr., laida | ✅ PASISEKĖ | M 1:100 · SRBS32-01-TDP-SK-02 · laida 0 |
 | O3 | Skenas: horizontalus ir vertikalus matmuo | ✅ PASISEKĖ | matmenys: 12000, 8000 |
 | O4 | Skenas: lietuviškos raidės, adresas, pamatų turinys | ✅ PASISEKĖ | adresas: Senolių g. 32 · turinys: fnd |
 | O5 | Skenas: dydžiai, altitudė, medžiaga | ✅ PASISEKĖ | dydžiai 600x400 · altitudės -1.2 · c25/30 |
 | O6 | Pamatų agentas: OCR skerspjūvis – tik pasiūlymas su žyma „OCR“ | ✅ PASISEKĖ | Pamato skerspjūvis (plotis × aukštis) nepatvirtintas – dokumentuose rasta: 600×400 (skenas.pdf 1 psl., OCR). Įveskite arba patvirtinkite – spėjimas nenaudojamas. |
 | O7 | Pagrindinis langas: skeno mastelis ir tekstai iš OCR | ✅ PASISEKĖ | {"n":23,"ocr":true,"scale":100} |
-| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 89 % · 9 s |
+| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 84 % · 10 s |
 | O9 | Nuotrauka priskiriama projektui pagal OCR adresą | ✅ PASISEKĖ | AUTO · Senolių g. 32 |
 | O10 | Žiniaraštis iš nuotraukos: prieštaravimas pažymimas kaip OCR | ✅ PASISEKĖ | Prieštaravimas: L-1 modelyje 1,20×1,50, nuotrauka.jpg 1 psl. – 1,50×1,50 (atpažinta OCR – patikrinkite brėžinyje) (nesirenkama automatiškai) |
 | O11 | Pasvirusi nuotrauka (perspektyva) ir ranka rašytas tekstas | ⬜ NETESTUOTA | Perspektyvos ištiesinimas neįdiegtas; ranka rašyto teksto Tesseract patikimai neatpažįsta |
@@ -139,4 +139,19 @@ Vektorinis pamatų planas M 1:100: perimetro rostverkas 600 mm ašyse 1, 3, A, C
 | D19 | Kiekvienas agento veiksmas programoje registruojamas Board (ACTION) | ✅ PASISEKĖ | {"fnd":5,"open":1,"lint":1,"ring":1,"slab":1} |
 | D20 | Be pamatų brėžinio: „Pamatai“ – juostos po 1 aukšto sienų ašimis (b 0,5 × h 0,4) | ✅ PASISEKĖ | „Pamatai“: 4 išorės rostverkai, 0 vidiniai (pagal 1 aukštas laikančias sienas, b × h = 0,500 × 0,400 m (vartotojas)) · [[8.6,0.5,0.4],[5.6,0.5,0.4],[8.6,0.5,0.4],[5.6,0.5,0.4]] |
 | D21 | Braižytojas (senasis agentas) piešia tikrame architektūros brėžinyje | ⬜ NETESTUOTA | Testuota tik įsakymo perdavimas (agentRun pakeistas stebėjimo funkcija); jo braižymas spalvotame PDF – kaip anksčiau, netestuotas šiame teste |
+| E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |
+
+## Ką mato agentai ir piešimo lapai (tests/sees.cjs)
+
+Agentų dokumentai (architektūra 3 psl., pamatų planas), jūsų atidarytas kito adreso PDF (📄), atmestas svetimas PDF. Atskiras mygtukas „🎯 Lapas“.
+
+| Nr. | Testas | Rezultatas | Pastaba |
+|---|---|---|---|
+| S1 | Visi 6 agentai mato visus įkeltus PDF, taip pat jūsų atidarytą (📄) | ✅ PASISEKĖ | architektura.pdf:PIRMAS, pamatai.pdf:AUTO, mano_brezinys.pdf:PATVIRTINTA · fnd 3/3, walls 3/3, open 3/3, lint 3/3, ring 3/3, slab 3/3 |
+| S2 | Žyma „👁 Mato“: kiek PDF ir jų pavadinimai, puslapiai, aktualūs puslapiai | ✅ PASISEKĖ | {"pl":6,"ag":"Mato 3 iš 3 PDF","names":true,"rel":true} |
+| S3 | Ko agentas nemato – parodoma su priežastimi, vienu mygtuku įjungiama | ✅ PASISEKĖ | {"b":"3/4","why":["svetimas.pdf: atmestas (kito projekto?)"],"shown":true,"a":"4/4"} |
+| S4 | Atskiras mygtukas „🎯 Lapas“: kiekvienam aukštui – PDF ir konkretus puslapis (su paveikslėliais) | ✅ PASISEKĖ | {"sep":true,"rows":["fnd","1"],"tiles":6,"sheet":{"doc":"doc_mvlisdmlkf4oa","page":2},"chip":"🎯 Lapas: architektura.pdf 2 psl.","viewer":"architektura.pdf 2"} |
+| S5 | Braižytojas piešia ant jūsų pasirinkto lapo (net jei atidarytas kitas PDF) | ✅ PASISEKĖ | architektura.pdf 2 |
+| S6 | Pamatų agentas naudoja jūsų pasirinktą „Pamatai“ lapą (netinkamame – paaiškina) | ✅ PASISEKĖ | {"r1":"🎯 Pasirinktame „Pamatai“ lape (architektura.pdf 1 psl.) rostverkų nerasta – pasirinkite kitą lapą","r2":"„Pamatai“: 4 išorės rostverkai, 2 vidiniai, 11 poliai – rodomi agentų sluoksnyje (pamatai.pdf 1 psl., brėžinio koordinatės – nesulygiuota su 1 aukštu (kalibruokite pamatų lapą arba 1 aukš |
+| S7 | Analizės eigoje agentas užrašo, ką matė (PDF pavadinimai ir puslapiai) | ✅ PASISEKĖ | 👁 Mato 4/4 PDF: architektura.pdf (3 psl.), pamatai.pdf (1 psl.), mano_brezinys.pdf (1 psl.), svetimas.pdf (1 psl.) |
 | E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |

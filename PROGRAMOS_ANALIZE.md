@@ -40,6 +40,12 @@ Rastas kode (`agentRun`, `agentReplay`, `agentApplyGen`, `agentUnderstand`, pamo
 | Agentams – galimybė įkelti tų pačių PDF, nes projektas ne iš vieno lapo | 🧠 → 📚 Dokumentai: keli PDF / nuotraukos, visi puslapiai. Jūsų atidarytas PDF įtraukiamas automatiškai. |
 | Visi agentai ir kas su jais susiję – **po vienu mygtuku** | Vienas mygtukas **🧠 Agentai** (matomas visada). Jame: 📋 Planner (✏️ Braižyti, ▶ Tikrinti), 🧩 6 agentai, 🤖 Braižytojas (senasis agentas: Daryk, Mokykis, Pokalbis, Pamokos, Planner moko), 📚 Dokumentai, 📊 Kiekiai, 📡 Board, ✎ Pataisymai. Senojo agento mygtukas, ⚙️ dubliai ir agentų mygtukai PDF meniu pašalinti (⚙️ liko viena nuoroda). Kai braižytojas mokosi / stebi, tas pats mygtukas rodo „⏺ … ✔ Baigti“ / „👀 … ✔ Išmokti“. |
 
+## 3a. Ką mato agentai ir ant kokio lapo piešia
+
+- **👁 Mato** – prie kiekvieno agento: „Mato N iš M PDF“, kiekvieno PDF pavadinimas, puslapių skaičius ir agentui aktualūs puslapiai; ko nemato – pavadinimas, priežastis ir mygtukas „rodyti agentams“. Planner lange – žymos „🏗️ 3/3 PDF“ visiems 6. Analizės eigoje agentas užrašo, ką matė.
+- **Visi PDF – visiems agentams**: kiekvienas agentas mato visus projekto PDF; jūsų atidarytas 📄 PDF priskiriamas projektui automatiškai (tai jūsų sprendimas), net jei adresas kitas.
+- **🎯 Lapas** – atskiras mygtukas (ne 🧠): kiekvienam aukštui („Pamatai“, 1 aukštas, …) pasirenkate PDF ir konkretų puslapį (su paveikslėliais). Braižytojas piešia aukštą ant to lapo, Pamatų agentas – „Pamatai“ ant savo lapo. Iš aukštų susidaro 3D.
+
 ## 4. Kas ką braižo (Planner „✏️ Braižyti“)
 
 1. 🏗️ **Pamatų agentas** – aukštas „Pamatai“ (rostverkai); poliai rodomi agentų sluoksnyje (programoje polio elemento nėra).

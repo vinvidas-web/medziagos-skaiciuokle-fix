@@ -1,0 +1,50 @@
+[
+ {
+  "nr": "S1",
+  "name": "Visi 6 agentai mato visus įkeltus PDF, taip pat jūsų atidarytą (📄)",
+  "res": "PASISEKĖ",
+  "note": "architektura.pdf:PIRMAS, pamatai.pdf:AUTO, mano_brezinys.pdf:PATVIRTINTA · fnd 3/3, walls 3/3, open 3/3, lint 3/3, ring 3/3, slab 3/3"
+ },
+ {
+  "nr": "S2",
+  "name": "Žyma „👁 Mato“: kiek PDF ir jų pavadinimai, puslapiai, aktualūs puslapiai",
+  "res": "PASISEKĖ",
+  "note": "{\"pl\":6,\"ag\":\"Mato 3 iš 3 PDF\",\"names\":true,\"rel\":true}"
+ },
+ {
+  "nr": "S3",
+  "name": "Ko agentas nemato – parodoma su priežastimi, vienu mygtuku įjungiama",
+  "res": "PASISEKĖ",
+  "note": "{\"b\":\"3/4\",\"why\":[\"svetimas.pdf: atmestas (kito projekto?)\"],\"shown\":true,\"a\":\"4/4\"}"
+ },
+ {
+  "nr": "S4",
+  "name": "Atskiras mygtukas „🎯 Lapas“: kiekvienam aukštui – PDF ir konkretus puslapis (su paveikslėliais)",
+  "res": "PASISEKĖ",
+  "note": "{\"sep\":true,\"rows\":[\"fnd\",\"1\"],\"tiles\":6,\"sheet\":{\"doc\":\"doc_mvlisdmlkf4oa\",\"page\":2},\"chip\":\"🎯 Lapas: architektura.pdf 2 psl.\",\"viewer\":\"architektura.pdf 2\"}"
+ },
+ {
+  "nr": "S5",
+  "name": "Braižytojas piešia ant jūsų pasirinkto lapo (net jei atidarytas kitas PDF)",
+  "res": "PASISEKĖ",
+  "note": "architektura.pdf 2"
+ },
+ {
+  "nr": "S6",
+  "name": "Pamatų agentas naudoja jūsų pasirinktą „Pamatai“ lapą (netinkamame – paaiškina)",
+  "res": "PASISEKĖ",
+  "note": "{\"r1\":\"🎯 Pasirinktame „Pamatai“ lape (architektura.pdf 1 psl.) rostverkų nerasta – pasirinkite kitą lapą\",\"r2\":\"„Pamatai“: 4 išorės rostverkai, 2 vidiniai, 11 poliai – rodomi agentų sluoksnyje (pamatai.pdf 1 psl., brėžinio koordinatės – nesulygiuota su 1 aukštu (kalibruokite pamatų lapą arba 1 aukšto brėžinį su ašimis))\",\"fl\":\"Pamatai\"}"
+ },
+ {
+  "nr": "S7",
+  "name": "Analizės eigoje agentas užrašo, ką matė (PDF pavadinimai ir puslapiai)",
+  "res": "PASISEKĖ",
+  "note": "👁 Mato 4/4 PDF: architektura.pdf (3 psl.), pamatai.pdf (1 psl.), mano_brezinys.pdf (1 psl.), svetimas.pdf (1 psl.)"
+ },
+ {
+  "nr": "E",
+  "name": "Nebuvo JavaScript klaidų",
+  "res": "PASISEKĖ",
+  "note": ""
+ }
+]
