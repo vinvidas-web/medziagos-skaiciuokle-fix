@@ -81,6 +81,19 @@ Paspaudus objektą – **kilmė**: šaltinis, matmenys, skaičiavimo eiga, koord
 - **Patikimumas:** kiekvienas žodis turi patikimumą. Žodžiai < 60 % (pasuktiems < 75 %) laukams nenaudojami – rodomi kaip „neaiškūs“. Skaičiuose taisoma O→0, l/I→1. Iš OCR gauti duomenys pažymimi „OCR“ (pvz. pamatų skerspjūvio pasiūlymas, žiniaraščio prieštaravimas) ir lieka tik pasiūlymai.
 - **Pagrindinis langas:** skenuoto puslapio ar nuotraukos OCR žodžiai naudojami kaip tekstas – randamas mastelis „M 1:100“, veikia ilgių patikra pagal matmenis ir angų žymės.
 
+### Ašių geometrijos patikra
+
+Ašių atpažinimas – Kit funkcijos (`Kit.findAxes`, `Kit.checkAxes`, skenams `Kit.rasterLines`); rezultatus naudoja Sienų agentas (visi dokumentai, susiejimas su sienomis) ir Pamatų agentas (pamatų brėžinių ašys). Naujas agentas nekurtas.
+
+| Žingsnis | Kaip |
+|---|---|
+| Ašies linija | PDF vektorių atkarpos grupuojamos į tieses (kryptis ±0,2°, poslinkis ±0,9 pt); brūkšninė linija = daug atkarpų vienoje tiesėje. Skene / nuotraukoje – ilgos horizontalios ir vertikalios tamsių pikselių eilės. |
+| Žymė | Tekstas `A`…`Ž`, `1`…`99` (taip pat `A'`, `1/2`) linijos tęsinyje už jos galo (burbule). Skene kiekvienas burbulas iškerpamas be apskritimo ir atpažįstamas OCR kaip vienas simbolis. |
+| Šeimos | Lygiagrečios ašys (±1°) – viena kryptis; žymės išrikiuojamos didėjančia tvarka. |
+| Patikros | lygiagretumas, krypčių statmenumas; žymių eiga (iš eilės, be pasikartojimų, nemaišant raidžių ir skaičių); tarpas tarp gretimų ašių ↔ matmens tekstas tarp jų (taip pat pasuktas); matmenų grandinė: tarpų suma = bendras matmuo; mastelis: užrašytas „M 1:N“ ↔ pagal ašių matmenis (nuotraukoje – tik santykinis nuoseklumas, nes popieriaus dydis nežinomas). Matmens tekstas svarbesnis už nubraižytą atstumą – nesutapimas rodomas, automatiškai nerenkamas. |
+| Tarp dokumentų | tos pačios ašių poros (pvz. 2–3) tarpai visuose projekto lapuose; skirtumas > 10 mm → prieštaravimas su visais šaltiniais. |
+| Su modeliu | kai atidarytas brėžinys kalibruotas (📏): kalibracija ↔ ašių matmenys; kiekvienai išorės sienai – artimiausia lygiagreti ašis ir sienos centro atstumas iki jos (mm). Ašys nupiešiamos plane (žymės, tarpai ✔ / ⚠). |
+
 ### Saugojimas
 
 | Kas | Kur |
@@ -94,9 +107,9 @@ Paspaudus objektą – **kilmė**: šaltinis, matmenys, skaičiavimo eiga, koord
 | Specifikacijos reikalavimas | Būsena |
 |---|---|
 | Skenuotų PDF ir nuotraukų teksto atpažinimas | **Įgyvendinta (OCR).** Netestuota su tikrais skenais. Neįdiegta: perspektyvos ištiesinimas kampu fotografuotoms nuotraukoms, ranka rašytas tekstas, OCR telefonuose be WebAssembly SIMD (labai seni). |
-| Linijų / ašių atpažinimas iš vaizdo (skenuose) | **Neįgyvendinta** – OCR atpažįsta tik tekstą. |
-| Ašių geometrijos nustatymas ir tikrinimas | Tik ašių žymių kandidatai iš teksto. |
-| Automatinis mastelio patikrinimas pagal matmenų grandinę | Mastelis skaitomas iš teksto „M 1:100“; kalibracija – esama 📏 funkcija. |
+| Linijų atpažinimas iš vaizdo (skenuose) | Tik ilgos horizontalios / vertikalios linijos ašims; sienų kontūrų iš skeno vaizdo neatpažįstama. |
+| Ašių geometrijos nustatymas ir tikrinimas | **Įgyvendinta** (žr. „Ašių geometrijos patikra“). Neįgyvendinta: pasuktos ar kreivos ašys skenuose ir nuotraukose (iš vaizdo – tik horizontalios / vertikalios), lenktos (radialinės) ašys, ašys be burbulų. Netestuota su tikrais brėžiniais. |
+| Automatinis mastelio patikrinimas pagal matmenų grandinę | **Įgyvendinta** ašių matmenims (užrašytas mastelis ↔ ašių tarpų matmenys). |
 | Pamatų / rostverkų geometrijos atpažinimas iš brėžinio | Juostos išvedamos iš sienų; skerspjūvį tvirtina vartotojas. Rostverkų (ne po sienomis) ir polių nėra. |
 | Pjūvių altitudžių susiejimas su elementais (§25) | Altitudės surenkamos ir rodomos kaip informacija; aukščiai – iš esamo modelio. |
 | Taisymas tiesiai brėžinyje pirštu (§30) | Pataisos įvedamos objekto lange; sienų ir angų geometrija – kaip anksčiau, pagrindiniame lange. |

@@ -72,18 +72,6 @@
   "note": "Tikrinama tests/ocr.cjs (O8–O10): nuotrauka pasukta 2° su triukšmu"
  },
  {
-  "nr": 11,
-  "name": "Nustatomos ir tikrinamos pastato ašys",
-  "res": "NETESTUOTA",
-  "note": "Ašių žymių kandidatai išrenkami iš teksto (A B 1 2), bet ašių linijų geometrija ir jų tarpusavio padėtis netikrinama"
- },
- {
-  "nr": 12,
-  "name": "Tikrinamas mastelis",
-  "res": "NETESTUOTA",
-  "note": "Mastelis M 1:100 perskaitomas iš teksto (kalibracija – esama 📏 funkcija); automatinis mastelio patikrinimas pagal matmenų grandinę neįgyvendintas"
- },
- {
   "nr": 13,
   "name": "Tikrinami matmenys (dviguba patikra: formulė ↔ koordinatės)",
   "res": "PASISEKĖ",
@@ -159,13 +147,13 @@
   "nr": 21,
   "name": "Projektas išsaugomas",
   "res": "PASISEKĖ",
-  "note": "{\"pid\":\"prj_mvlewhxu7qvua\",\"h\":\"1mia3em\",\"docs\":4,\"saved\":true,\"log\":174}"
+  "note": "{\"pid\":\"prj_mvlfp2f6do9be\",\"h\":\"1w4t6u8\",\"docs\":4,\"saved\":true,\"log\":174}"
  },
  {
   "nr": 22,
   "name": "Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija)",
   "res": "PASISEKĖ",
-  "note": "{\"pid\":\"prj_mvlewhxu7qvua\",\"h\":\"1mia3em\",\"docs\":4,\"idx\":5,\"log\":174,\"st\":\"COMPLETED\"}"
+  "note": "{\"pid\":\"prj_mvlfp2f6do9be\",\"h\":\"1w4t6u8\",\"docs\":4,\"idx\":5,\"log\":174,\"st\":\"COMPLETED\"}"
  },
  {
   "nr": "22a",

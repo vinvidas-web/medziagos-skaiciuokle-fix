@@ -7192,6 +7192,104 @@ const KS = (() => {
             f.projectWords = uniq((lines.filter(l => /projekt|objekt|statyb|gyvenam/i.test(l)).join(' ').toLowerCase().match(/[a-ząčęėįšųūž]{5,}/g) || [])).slice(0, 40);
             return f;
         },
+        /* ---- AŠYS: linijos (PDF vektoriai arba skeno rastras) + žymės burbuluose linijų galuose ----
+           segs – [x1, y1, x2, y2, …] PDF taškais (y žemyn), texts – [{ s, x, y, ang }].
+           Grąžina ašis, šeimas (lygiagrečių ašių grupes) ir patikras. Sprendimų nepriima – tik nustato ir tikrina. */
+        AX_LABEL: /^([A-ZĄČĘĖĮŠŲŪŽ]|[1-9]\d?)(['′’]|\/\d{1,2})?$/,
+        AX_ABC: 'AĄBCČDEĘĖFGHIĮYJKLMNOPQRSŠTUŲŪVWXZŽ',
+        axKey(s) { const b = s.replace(/['′’]|\/\d+$/g, ''), p = /['′’]/.test(s) ? 0.5 : (/\/(\d+)$/.test(s) ? Number(s.match(/\/(\d+)$/)[1]) / 100 : 0);
+            return /^\d+$/.test(b) ? { num: true, v: Number(b) + p } : { num: false, v: Kit.AX_ABC.indexOf(b) + p }; },
+        findAxes(segs, texts, W, H, raster) { // raster – skeno linijos: linija dažnai tęsiasi per burbulą, žymė gali būti linijos gale
+            const G = new Map(), groups = [], TA = 0.004, TO = 0.9, minLen = Math.max(60, 0.12 * Math.min(W || 600, H || 400));
+            for (let i = 0; i < segs.length; i += 4) {
+                const x1 = segs[i], y1 = segs[i + 1], x2 = segs[i + 2], y2 = segs[i + 3]; let a = Math.atan2(y2 - y1, x2 - x1); if (a < 0) a += Math.PI; if (a >= Math.PI - 0.002) a -= Math.PI;
+                const cs = Math.cos(a), sn = Math.sin(a), o = -sn * x1 + cs * y1; let u1 = cs * x1 + sn * y1, u2 = cs * x2 + sn * y2; if (u1 > u2) { const t = u1; u1 = u2; u2 = t; }
+                const ka = Math.round(a / TA), ko = Math.round(o / TO); let g = null;
+                for (let da = -1; da <= 1 && !g; da++) for (let dO = -1; dO <= 1 && !g; dO++) { const c = G.get((ka + da) + ':' + (ko + dO)); if (c && Math.abs(c.a - a) < TA * 1.5 && Math.abs(c.o - o) < TO * 1.5) g = c; }
+                if (!g) { g = { a, o, iv: [] }; G.set(ka + ':' + ko, g); groups.push(g); }
+                g.iv.push([u1, u2]);
+            }
+            const lines = [];
+            groups.forEach(g => { let u0 = Infinity, u1 = -Infinity, cov = 0; g.iv.sort((p, q) => p[0] - q[0]); let cur = null;
+                g.iv.forEach(v => { u0 = Math.min(u0, v[0]); u1 = Math.max(u1, v[1]); if (cur && v[0] <= cur[1]) cur[1] = Math.max(cur[1], v[1]); else { if (cur) cov += cur[1] - cur[0]; cur = v.slice(); } }); if (cur) cov += cur[1] - cur[0];
+                if (u1 - u0 >= minLen) lines.push({ a: g.a, o: g.o, u0, u1, n: g.iv.length, cov: cov / (u1 - u0) }); });
+            // žymė – linijos tęsinyje už jos galo (burbulo centre)
+            const labs = texts.filter(t => Kit.AX_LABEL.test(String(t.s).trim())), used = new Map();
+            labs.forEach(t => { let best = null;
+                lines.forEach(L => { const cs = Math.cos(L.a), sn = Math.sin(L.a), d = Math.abs(-sn * t.x + cs * t.y - L.o), u = cs * t.x + sn * t.y;
+                    if (d > 4.5) return; const beyond = u - L.u0 < L.u1 - u ? L.u0 - u : u - L.u1; if (beyond < (raster ? -25 : 2) || beyond > 45) return;
+                    const sc = d + Math.abs(beyond - (raster ? 0 : 14)) * 0.08 - Math.min(3, (L.u1 - L.u0) / 200); if (!best || sc < best.sc) best = { L, sc, end: u - L.u0 < L.u1 - u ? 0 : 1 }; });
+                if (best) { const k = best.L; if (!used.has(k)) used.set(k, []); used.get(k).push({ s: String(t.s).trim(), end: best.end, x: t.x, y: t.y, conf: t.conf }); } });
+            const axes = [], issues = [];
+            used.forEach((ls, L) => { const names = [...new Set(ls.map(l => l.s))];
+                if (names.length > 1) issues.push('Viena ašies linija turi skirtingas žymes: ' + names.join(' / '));
+                const cs = Math.cos(L.a), sn = Math.sin(L.a), P = u => [cs * u - sn * L.o, sn * u + cs * L.o];
+                axes.push({ label: names[0], names, a: L.a, o: L.o, u0: L.u0, u1: L.u1, p1: P(L.u0), p2: P(L.u1), dashed: L.n >= 4 && L.cov < 0.97, both: ls.some(l => l.end === 0) && ls.some(l => l.end === 1), n: L.n, ocr: ls.some(l => l.conf != null) }); });
+            // šeimos: lygiagrečios ašys (±1°)
+            const fams = []; axes.sort((p, q) => p.a - q.a).forEach(ax => { const f = fams.find(f => { const d = Math.abs(f.a - ax.a); return Math.min(d, Math.PI - d) < 0.0175; }); if (f) f.axes.push(ax); else fams.push({ a: ax.a, axes: [ax] }); });
+            fams.forEach(f => { const ref = f.axes[0].a; f.a = f.axes.reduce((s, x) => s + (Math.abs(x.a - ref) > Math.PI / 2 ? x.a + (x.a < ref ? Math.PI : -Math.PI) : x.a), 0) / f.axes.length; const cs = Math.cos(f.a), sn = Math.sin(f.a);
+                f.n = [-sn, cs]; f.d = [cs, sn]; f.axes.forEach(x => { const m = [(x.p1[0] + x.p2[0]) / 2, (x.p1[1] + x.p2[1]) / 2]; x.pos = f.n[0] * m[0] + f.n[1] * m[1]; }); f.axes.sort((p, q) => p.pos - q.pos);
+                if (f.axes.length > 1 && Kit.axKey(f.axes[0].label).v > Kit.axKey(f.axes[f.axes.length - 1].label).v) { f.axes.reverse(); f.n = [-f.n[0], -f.n[1]]; f.axes.forEach(x => { x.pos = -x.pos; }); } // žymės didėjančia tvarka
+                f.dev = Math.max(...f.axes.map(x => { const d = Math.abs(x.a - f.a); return Math.min(d, Math.PI - d); })) * 180 / Math.PI; });
+            return { axes, fams: fams.filter(f => f.axes.length), issues, nLines: lines.length };
+        },
+        checkAxes(A, texts, scaleN, image) { // image – nuotrauka: popieriaus dydis nežinomas, mastelis tikrinamas tik santykiškai // patikros vienam puslapiui; tarpai – realiais mm (pagal matmenų tekstą arba mastelį)
+            const PT = 25.4 / 72, checks = [], spans = [], ratios = [], add = (name, status, note) => checks.push({ name, status, note: note || '' });
+            if (!A || !A.axes.length) return { checks, spans, scale: null };
+            const dims = texts.map(t => ({ t, v: Kit.parseDim(t.s) })).filter(x => x.v);
+            A.issues.forEach(t => add('Ašių žymės', 'KLAIDA', t));
+            A.fams.forEach((f, fi) => {
+                const nm = 'Ašys ' + f.axes.map(x => x.label).join(', ');
+                add(nm + ': lygiagretumas', f.dev < 0.3 ? 'OK' : 'ĮSPĖJIMAS', 'didžiausias nuokrypis ' + fmt(f.dev, 2) + '°');
+                const ks = f.axes.map(x => Kit.axKey(x.label)), mixed = ks.some(k => k.num) && ks.some(k => !k.num);
+                const dup = f.axes.map(x => x.label).filter((l, i, arr) => arr.indexOf(l) !== i);
+                const inc = ks.every((k, i) => !i || k.v > ks[i - 1].v), dec = ks.every((k, i) => !i || k.v < ks[i - 1].v);
+                add(nm + ': žymių eiga', dup.length ? 'KLAIDA' : (mixed ? 'ĮSPĖJIMAS' : (inc || dec ? 'OK' : 'ĮSPĖJIMAS')), dup.length ? 'pasikartoja: ' + [...new Set(dup)].join(', ') : (mixed ? 'raidės ir skaičiai vienoje kryptyje' : (inc || dec ? 'nuoseklios' : 'žymės ne iš eilės: ' + f.axes.map(x => x.label).join(' → '))));
+                f.axes.forEach(x => { if (!x.dashed) add('Ašis ' + x.label + ': linijos tipas', 'INFO', 'ištisinė linija (ašys paprastai brūkšninės) – patikrinkite, ar tai ašis'); });
+                const nAng = Math.atan2(f.n[1], f.n[0]), along = p => f.d[0] * p[0] + f.d[1] * p[1], across = p => f.n[0] * p[0] + f.n[1] * p[1];
+                const lo = Math.min(...f.axes.map(x => Math.min(along(x.p1), along(x.p2)))), hi = Math.max(...f.axes.map(x => Math.max(along(x.p1), along(x.p2))));
+                const cand = (pa, pb) => { const g = pb - pa, mid = (pa + pb) / 2; return dims.filter(({ t }) => { const p = across([t.x, t.y]); if (Math.abs(p - mid) > 0.12 * g + 3) return false;
+                    const da = Math.abs(Math.sin((t.ang || 0) - nAng)); return da < 0.25; }).map(x => Object.assign({ off: Math.abs(across([x.t.x, x.t.y]) - mid), out: along([x.t.x, x.t.y]) < lo || along([x.t.x, x.t.y]) > hi }, x)); };
+                for (let i = 0; i + 1 < f.axes.length; i++) { const A1 = f.axes[i], A2 = f.axes[i + 1], paper = (A2.pos - A1.pos) * PT, cs = cand(A1.pos, A2.pos);
+                    spans.push({ fam: fi, from: A1.label, to: A2.label, paper, cands: cs.map(c => c.v.mm), pick: null }); }
+                // bendras matmuo tarp kraštinių ašių
+                if (f.axes.length > 2) { const A1 = f.axes[0], A2 = f.axes[f.axes.length - 1]; spans.push({ fam: fi, from: A1.label, to: A2.label, total: true, paper: (A2.pos - A1.pos) * PT, cands: cand(A1.pos, A2.pos).map(c => c.v.mm), pick: null }); }
+            });
+            // mastelis: užrašytas ir pagal ašių matmenis (tekstinis matmuo svarbesnis už išmatuotą atstumą)
+            spans.forEach(s => s.cands.forEach(v => ratios.push(v / s.paper)));
+            const near = (v, real) => Math.abs(v - real) <= Math.max(30, 0.015 * v);
+            let est = null; if (ratios.length) { const r = ratios.slice().sort((a, b) => a - b), med = r[Math.floor(r.length / 2)], inl = r.filter(x => Math.abs(x / med - 1) < 0.015); est = inl.length >= Math.max(2, ratios.length / 2) ? inl.reduce((a, b) => a + b, 0) / inl.length : null; }
+            const N = scaleN && !(est && Math.abs(est / scaleN - 1) >= 0.02) ? scaleN : (est || scaleN || 0); // užrašytam masteliui prieštaraujant matmenims – naudojamas pagal matmenis
+            if (image) { scaleN = 0; add('Matmenys tarpusavyje nuoseklūs (nuotrauka – absoliutaus mastelio patikrinti negalima)', est ? 'OK' : 'NETIKRINTA', est ? 'visi rasti ašių matmenys atitinka tą patį santykį' : 'nepakanka matmenų'); }
+            else if (scaleN && est) add('Mastelis pagal ašių matmenis', Math.abs(est / scaleN - 1) < 0.02 ? 'OK' : 'KLAIDA', 'užrašyta M 1:' + scaleN + ', pagal matmenis ≈ 1:' + fmt(est, 1));
+            else if (scaleN) add('Mastelis pagal ašių matmenis', 'NETIKRINTA', 'užrašyta M 1:' + scaleN + ', ašių matmenų nerasta');
+            else if (est) add('Mastelis pagal ašių matmenis', 'ĮSPĖJIMAS', 'mastelis neužrašytas, pagal matmenis ≈ 1:' + fmt(est, 1));
+            spans.forEach(s => { s.real = N ? s.paper * N : null; s.pick = s.cands.find(v => s.real != null && near(v, s.real)) || null;
+                s.st = s.pick != null ? 'OK' : (s.cands.length && s.real != null ? 'ĮSPĖJIMAS' : 'NETIKRINTA');
+                s.mm = s.pick != null ? s.pick : (s.cands.length === 1 ? s.cands[0] : (s.real != null ? Math.round(s.real) : null)); s.measured = s.pick == null && s.cands.length !== 1; });
+            spans.filter(s => !s.total).forEach(s => add('Tarpas ' + s.from + '–' + s.to, s.st, s.st === 'OK' ? 'matmuo ' + s.pick + ' = nubraižyta ' + Math.round(s.real) + ' mm' : (s.st === 'ĮSPĖJIMAS' ? 'matmuo ' + s.cands.join(' / ') + ', nubraižyta ' + Math.round(s.real) + ' mm – patikrinkite (matmuo svarbesnis už brėžinį)' : (s.real != null ? 'matmens nerasta, nubraižyta ≈ ' + Math.round(s.real) + ' mm' : 'matmens ir mastelio nerasta'))));
+            A.fams.forEach((f, fi) => { const part = spans.filter(s => s.fam === fi && !s.total), tot = spans.find(s => s.fam === fi && s.total); if (!tot || !tot.cands.length || part.some(s => s.pick == null)) return;
+                const sum = part.reduce((a, s) => a + s.pick, 0), ok = tot.cands.some(v => Math.abs(v - sum) <= 2);
+                add('Matmenų grandinė ' + tot.from + '–' + tot.to, ok ? 'OK' : 'KLAIDA', 'tarpų suma ' + sum + ' mm, bendras matmuo ' + tot.cands.join(' / ') + ' mm'); });
+            if (A.fams.length >= 2) { const d = Math.abs(A.fams[0].a - A.fams[1].a) * 180 / Math.PI, ang = Math.min(d, 180 - d); add('Ašių kryptys statmenos', Math.abs(ang - 90) < 0.3 ? 'OK' : 'INFO', 'kampas tarp krypčių ' + fmt(ang, 2) + '°'); }
+            return { checks, spans, scale: { declared: scaleN || 0, est } };
+        },
+        rasterSegs(cv, toPt, lines) { // linijos → atkarpos PDF taškais (brūkšninė linija – keli brūkšniai)
+            const segs = []; (lines || Kit.rasterLines(cv)).forEach(({ hor, r, a, b, k }) => { const p = hor ? toPt([a, r]) : toPt([r, a]), q = hor ? toPt([b, r]) : toPt([r, b]);
+                const n = k >= 4 ? k : 1; for (let j = 0; j < n; j++) { const f0 = j / n, f1 = (j + 0.8) / n; segs.push(p[0] + (q[0] - p[0]) * f0, p[1] + (q[1] - p[1]) * f0, p[0] + (q[0] - p[0]) * f1, p[1] + (q[1] - p[1]) * f1); } });
+            return new Float32Array(segs);
+        },
+        rasterLines(cv) { // skenas / nuotrauka: ilgos horizontalios ir vertikalios (ir brūkšninės) linijos iš pikselių
+            const W = cv.width, H = cv.height, d = cv.getContext('2d').getImageData(0, 0, W, H).data, dark = i => (d[i] + d[i + 1] + d[i + 2]) < 384;
+            const out = [], GAP = Math.max(12, Math.round(Math.max(W, H) * 0.008)), MIN = Math.max(W, H) * 0.08;
+            const scan = (n, m, at) => { let prev = []; for (let r = 0; r < n; r++) { const runs = []; let s = -1, last = -1;
+                    let k = 0; // k – kiek brūkšnių sujungta (brūkšninė linija = daug brūkšnių)
+                    for (let c = 0; c < m; c++) { if (dark(at(r, c))) { if (s < 0) { s = c; k = 1; } else if (c - last > GAP) { runs.push([s, last, k]); s = c; k = 1; } else if (c - last > 2) k++; last = c; } }
+                    if (s >= 0) runs.push([s, last, k]);
+                    const cur = runs.filter(q => q[1] - q[0] >= MIN); cur.forEach(q => { if (!prev.some(p => Math.abs(p[0] - q[0]) < GAP && Math.abs(p[1] - q[1]) < GAP)) out.push([r, q[0], q[1], n === H, q[2]]); }); prev = cur; } };
+            scan(H, W, (r, c) => (r * W + c) * 4); scan(W, H, (r, c) => (c * W + r) * 4);
+            return out.slice(0, 4000).map(([r, a, b, hor, k]) => ({ r, a, b, hor, k }));
+        },
         // dokumento parašas – projekto priklausomybei tikrinti
         signature(pages) {
             const s = { addr: new Set(), pref: new Set(), words: new Set() };
@@ -7208,6 +7306,16 @@ const KS = (() => {
         }
     };
 
+    function axPage(segs, texts, W, H, scaleN, raster, image) { // vieno puslapio ašys + patikros (saugoma indekse)
+        const A = Kit.findAxes(segs, texts, W, H, raster); if (!A.axes.length) return null;
+        const C = Kit.checkAxes(A, texts, scaleN, image);
+        A.fams.forEach((f, fi) => f.axes.forEach(x => { x.fam = fi; }));
+        const r2 = p => [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100];
+        return { raster: !!raster, axes: A.axes.map(x => ({ label: x.label, names: x.names, a: x.a, o: x.o, p1: r2(x.p1), p2: r2(x.p2), pos: x.pos, fam: x.fam, dashed: x.dashed, both: x.both, ocr: x.ocr })),
+            fams: A.fams.map(f => ({ a: f.a, n: f.n, d: f.d, dev: f.dev, labels: f.axes.map(x => x.label) })), checks: C.checks, spans: C.spans, scale: C.scale, nLines: A.nLines };
+    }
+    async function pdfSegsSafe(pg, vp1) { const keep = window.__pdfFills; try { return await pdfSegments(pg, vp1); } finally { window.__pdfFills = keep; } }
+
     /* ---------- būsena projekte (project.ks) ---------- */
     function ks() {
         if (!project.ks || typeof project.ks !== 'object') project.ks = {};
@@ -7221,7 +7329,7 @@ const KS = (() => {
         if (!p || typeof p !== 'object') return undefined;
         const arr = (v, n) => (Array.isArray(v) ? v.slice(-n) : []), obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
         try { return JSON.parse(JSON.stringify({ pid: String(p.pid || '').slice(0, 40) || Kit.uid('prj'), docs: arr(p.docs, 60), corrections: arr(p.corrections, 500), approvals: arr(p.approvals, 500), hist: arr(p.hist, 10),
-            results: obj(p.results), stale: obj(p.stale), input: obj(p.input), agents: obj(p.agents), plan: p.plan && typeof p.plan === 'object' ? p.plan : undefined, show: p.show !== false, want: Array.isArray(p.want) ? p.want.filter(x => AGENT_IDS.includes(x)) : undefined, layer: AGENT_IDS.includes(p.layer) ? p.layer : '', ocr: p.ocr && typeof p.ocr === 'object' ? { on: p.ocr.on !== false, q: p.ocr.q === 'fine' ? 'fine' : 'fast' } : undefined })); }
+            results: obj(p.results), stale: obj(p.stale), input: obj(p.input), agents: obj(p.agents), plan: p.plan && typeof p.plan === 'object' ? p.plan : undefined, show: p.show !== false, want: Array.isArray(p.want) ? p.want.filter(x => AGENT_IDS.includes(x)) : undefined, layer: AGENT_IDS.includes(p.layer) || p.layer === 'axes' ? p.layer : '', ocr: p.ocr && typeof p.ocr === 'object' ? { on: p.ocr.on !== false, q: p.ocr.q === 'fine' ? 'fine' : 'fast' } : undefined })); }
         catch (e) { return undefined; }
     }
     function modelHash() { // kas svarbu agentams: visi aukštai, sienos, angos, nustatymai, agentų įvesti duomenys
@@ -7322,6 +7430,48 @@ const KS = (() => {
         return out.slice(0, 40);
     }
 
+    /* ---------- AŠYS: visų dokumentų ašių patikra ir susiejimas su modeliu ---------- */
+    let AXL = null;
+    function axLive() { // dabar atidaryto PDF puslapio ašys (pagrindiniame lange)
+        if (!PDFU || !PDFU.segs || !PDFU.texts || !PDFU.texts.length) return null; const key = PDFU.name + '#' + PDFU.page + '#' + PDFU.segs.length + '#' + PDFU.texts.length;
+        if (AXL && AXL.key === key) return AXL.v; const v = axPage(PDFU.segs, PDFU.texts, PDFU.W, PDFU.H, PDFU.scaleN); AXL = { key, v }; return v;
+    }
+    const worst = list => { const o = { KLAIDA: 3, 'ĮSPĖJIMAS': 2, NETIKRINTA: 1, INFO: 0, OK: 0 }; return list.reduce((m, c) => (o[c.status] > o[m] ? c.status : m), 'OK'); };
+    function axisAudit(onlyKind, withModel) {
+        const checks = [], issues = [], pages = [], pairs = {};
+        Docs.pages().forEach(p => { const g = p.f.axGeo; if (!g) return; const where = p.doc.name + ' ' + p.page + ' psl.' + (g.raster ? ' (skenas)' : '');
+            pages.push({ doc: p.doc.id, docName: p.doc.name, page: p.page, kinds: p.f.kinds || [], labels: g.fams.map(f => f.labels.join(', ')), checks: g.checks, spans: g.spans.filter(s => !s.total).map(s => ({ from: s.from, to: s.to, mm: s.mm, st: s.st, cands: s.cands })), scale: g.scale, raster: g.raster });
+            g.spans.forEach(s => { if (s.mm == null) return; const k = [s.from, s.to].sort().join('–'); (pairs[k] = pairs[k] || []).push({ where, mm: s.mm, text: !s.measured, fnd: (p.f.kinds || []).includes('fnd'), ocr: p.f.read === 'OCR' }); });
+            if (onlyKind && !(p.f.kinds || []).includes(onlyKind)) return;
+            const bad = g.checks.filter(c => c.status !== 'OK' && c.status !== 'INFO');
+            checks.push({ name: 'Ašys ' + where + ': ' + g.fams.map(f => f.labels.join(', ')).join(' | '), status: worst(g.checks), note: bad.length ? bad.map(c => c.name + ' – ' + c.note).join('; ') : g.checks.length + ' patikros tvarkoje', method: 'Kit.findAxes + Kit.checkAxes' });
+            g.checks.filter(c => c.status === 'KLAIDA').forEach(c => issues.push({ level: 'ĮSPĖJIMAS', text: where + ': ' + c.name + ' – ' + c.note }));
+        });
+        // tie patys ašių tarpai skirtinguose dokumentuose
+        let nCmp = 0; Object.keys(pairs).forEach(k => { const L = pairs[k]; if (L.length < 2) return; if (onlyKind === 'fnd' && !L.some(x => x.fnd)) return; nCmp++;
+            const ref = L.find(x => x.text) || L[0], diff = L.filter(x => Math.abs(x.mm - ref.mm) > Math.max(10, 0.005 * ref.mm));
+            if (diff.length) issues.push({ level: 'ĮSPĖJIMAS', text: 'Prieštaravimas: ašys ' + k + ' – ' + L.map(x => x.mm + ' mm (' + x.where + (x.text ? '' : ', išmatuota') + (x.ocr ? ', OCR' : '') + ')').join(', ') + ' – automatiškai nesirenkama' }); });
+        if (pages.length) checks.push({ name: 'Ašių tarpai sutampa skirtinguose dokumentuose', status: nCmp ? (issues.some(i => /^Prieštaravimas: ašys/.test(i.text)) ? 'ĮSPĖJIMAS' : 'OK') : 'NETIKRINTA', note: nCmp ? nCmp + ' ašių porų palyginta' : 'ašių poros rastos tik viename lape' });
+        else checks.push({ name: 'Ašys dokumentuose', status: 'NETIKRINTA', note: 'ašių (linija + žymė burbule) nerasta' });
+        // susiejimas su modeliu: kalibruotas dabar atidarytas puslapis
+        const bind = [];
+        if (withModel && PDFU && PDFU.cv && R && R.n) { const c = pdfCal(), A = axLive();
+            if (A && c && c.ok) {
+                const W = A.axes.map(x => { const a = P2W(x.p1, c), b = P2W(x.p2, c), d = Kit.dist(a, b) || 1; return { label: x.label, a, b, u: [(b[0] - a[0]) / d, (b[1] - a[1]) / d] }; });
+                // kalibracija ↔ ašių matmenys
+                const cal = []; A.spans.filter(s => !s.total && s.pick != null).forEach(s => { const x1 = W.find(w => w.label === s.from), x2 = W.find(w => w.label === s.to); if (!x1 || !x2) return;
+                    const dmm = Math.abs((x2.a[0] - x1.a[0]) * -x1.u[1] + (x2.a[1] - x1.a[1]) * x1.u[0]) * 1000; cal.push({ k: s.from + '–' + s.to, v: s.pick, d: dmm, ok: Math.abs(dmm - s.pick) <= Math.max(20, 0.005 * s.pick) }); });
+                if (cal.length) checks.push({ name: 'Brėžinio kalibracija ↔ ašių matmenys', status: cal.every(x => x.ok) ? 'OK' : 'ĮSPĖJIMAS', note: cal.map(x => x.k + ': ' + x.v + ' / ' + Math.round(x.d) + ' mm').join('; '), method: 'P2W ↔ tekstas' });
+                R.walls.forEach((rw, i) => { const L = Kit.dist(rw.a, rw.b) || 1, u = [(rw.b[0] - rw.a[0]) / L, (rw.b[1] - rw.a[1]) / L], m = Kit.lerp(rw.a, rw.b, 0.5); let best = null;
+                    W.forEach(x => { if (Math.abs(u[0] * x.u[1] - u[1] * x.u[0]) > 0.0175) return; const off = (m[0] - x.a[0]) * -x.u[1] + (m[1] - x.a[1]) * x.u[0]; if (!best || Math.abs(off) < Math.abs(best.off)) best = { x, off }; });
+                    bind.push({ wall: 'S' + (i + 1), axis: best && Math.abs(best.off) <= 1 ? best.x.label : null, off: best ? best.off : null, t: rw.t }); });
+                const on = bind.filter(b => b.axis);
+                checks.push({ name: 'Išorės sienų susiejimas su ašimis (' + PDFU.name + ' ' + PDFU.page + ' psl.)', status: on.length ? 'OK' : 'ĮSPĖJIMAS', note: bind.map(b => b.wall + (b.axis ? ' → ' + b.axis + ' (centras ' + Math.round(Math.abs(b.off) * 1000) + ' mm nuo ašies)' : ' – ašies arčiau 1 m nėra')).join('; ') });
+            } else checks.push({ name: 'Sienų susiejimas su ašimis', status: 'NETIKRINTA', note: A ? 'atidarytas brėžinys nekalibruotas (📏 Mastelis)' : 'atidarytame puslapyje ašių nerasta' });
+        }
+        return { checks, issues, pages, bind };
+    }
+
     /* ---------- 6 SPECIALISTAI ---------- */
     class WallsAgent extends Agent {
         constructor() { super('walls', '🧱', 'Sienų agentas', 'Išorinės ir vidinės sienos, pertvaros, storiai, ilgiai, aukščiai, plotai, tūriai', []); }
@@ -7357,7 +7507,8 @@ const KS = (() => {
             if (!objects.length) return { objects, qty, checks, issues, needs: ['Projekte nėra sienų – nubrėžkite kontūrą (✏️ arba 📄 PDF)'] };
             if (pdfC.length) { const w = pdfC.filter(x => x.st === 'warn'); checks.push({ name: 'Ilgiai pagal brėžinio matmenis', status: w.length ? 'ĮSPĖJIMAS' : 'OK', note: (pdfC.length - w.length) + ' sutampa' + (w.length ? '; nesutampa: ' + w.map(x => x.lab + ' (' + x.v + ' / ' + Math.round(x.L * 1000) + ')').join(', ') : ''), method: 'pdfLenCheck' }); w.forEach(x => issues.push({ level: 'ĮSPĖJIMAS', text: 'Prieštaravimas: ' + x.lab + ' brėžinyje ' + x.v + ' mm, modelyje ' + Math.round(x.L * 1000) + ' mm – automatiškai nesirenkama' })); }
             else checks.push({ name: 'Ilgiai pagal brėžinio matmenis', status: 'NETIKRINTA', note: 'brėžinys su mastelio kalibracija neatidarytas' });
-            return { objects, qty, checks, issues, evidence: evidence('walls', /\b\d{3}\b.*(sien|mūr)|(sien|mūr).*\b\d{3}\b/i) };
+            const AX = axisAudit(null, true); checks.push(...AX.checks); issues.push(...AX.issues); this.step('Ašys: ' + AX.pages.length + ' lapuose');
+            return { objects, qty, checks, issues, evidence: evidence('walls', /\b\d{3}\b.*(sien|mūr)|(sien|mūr).*\b\d{3}\b/i), axes: AX.pages, bind: AX.bind };
         }
     }
     class FoundationAgent extends Agent {
@@ -7388,9 +7539,11 @@ const KS = (() => {
             checks.push({ name: 'Skerspjūvis patvirtintas vartotojo', status: b && h ? 'OK' : 'NETIKRINTA', note: b && h ? fmt(b, 3) + ' × ' + fmt(h, 3) + ' m (' + (inp.src || 'vartotojas') + ')' : 'laukiama patvirtinimo' });
             qty.push({ floor: 0, name: 'Pamatų juostos – ilgis (ašimis)', unit: 'm', v: Lsum }, { floor: 0, name: 'Pamatų juostų skaičius', unit: 'vnt.', v: objects.length });
             if (b && h) qty.push({ floor: 0, name: 'Pamatų betonas', unit: 'm³', v: Lsum * b * h });
+            const AX = axisAudit('fnd', false); if (AX.pages.some(p => p.kinds.includes('fnd'))) { checks.push(...AX.checks); issues.push(...AX.issues); }
+            else checks.push({ name: 'Pamatų ašys', status: 'NETIKRINTA', note: 'pamatų brėžiniuose ašių nerasta' });
             const el = []; ev.forEach(e => (e.text.match(/[±+\-−]\s?\d{1,2}[.,]\d{3}/g) || []).forEach(s => el.push(Kit.parseElev(s) + ' (' + e.docName + ' ' + e.page + ' psl.)')));
             if (el.length) issues.push({ level: 'INFO', text: 'Altitudės pamatų brėžiniuose: ' + [...new Set(el)].slice(0, 6).join(', ') });
-            return { objects, qty, checks, needs, issues, evidence: ev, candidates: sizes.slice(0, 10).map(s => ({ b: s.b, h: s.h, doc: s.src.doc, docName: s.src.docName, page: s.src.page, text: s.src.text, ocr: !!s.src.ocr })) };
+            return { objects, qty, checks, needs, issues, evidence: ev, axes: AX.pages.filter(p => p.kinds.includes('fnd')), candidates: sizes.slice(0, 10).map(s => ({ b: s.b, h: s.h, doc: s.src.doc, docName: s.src.docName, page: s.src.page, text: s.src.text, ocr: !!s.src.ocr })) };
         }
     }
     class OpeningsAgent extends Agent {
@@ -7566,7 +7719,7 @@ const KS = (() => {
             if (changedAppr.length) Board.msg('APPROVAL_REQUEST', 'planner', 'vartotojas', K.plan && K.plan.id, { agent: agentId, text: 'Pasikeitė patvirtinti objektai: ' + changedAppr.join(', ') + ' – palikta patvirtinta versija, nauja laukia sprendimo' });
             if (prev) { K.hist.push({ t: Date.now(), agent: agentId, res: prev }); if (K.hist.length > 10) K.hist.splice(0, K.hist.length - 10); }
             K.results[agentId] = { ver: rec.ver, hash: rec.hash, t: Date.now(), model, by: agentId, objects: objs, qty: Kit.clone(rec.value.qty || []), checks: Kit.clone(rec.value.checks || []), issues: Kit.clone(rec.value.issues || []), needs: Kit.clone(rec.value.needs || []),
-                candidates: Kit.clone(rec.value.candidates || []), evidence: Kit.clone((rec.value.evidence || []).slice(0, 20)), state: AG[agentId].state };
+                candidates: Kit.clone(rec.value.candidates || []), axes: Kit.clone(rec.value.axes || []), bind: Kit.clone(rec.value.bind || []), evidence: Kit.clone((rec.value.evidence || []).slice(0, 20)), state: AG[agentId].state };
             delete K.stale[agentId];
             // patikros: 1) įrašyta tas pats, kas Board, 2) koordinatės sutampa su pagrindinio lango geometrija, 3) objektai atvaizduojami
             const r = K.results[agentId], same = r.objects.filter(o => !o.pending && !o.stale).every(o => { const b = rec.value.objects.find(x => x.id === o.id); return b && JSON.stringify(b.coords) === JSON.stringify(o.coords); }) && r.objects.length >= rec.value.objects.length;
@@ -7663,6 +7816,35 @@ const KS = (() => {
         kl.sort((a, b) => a.y - b.y || a.x - b.x);
         return { items: keep, low, lines: kl.map(l => l.s) };
     }
+    async function ocrBubbles(cv, lines, toPt) { // ašių žymės burbuluose skeno linijų galuose: kiekvienas burbulas atpažįstamas atskirai (vienas simbolis)
+        const w = await ocrWorker(), x = cv.getContext('2d'), S = Math.round(Math.max(cv.width, cv.height) * 0.032), out = [], seen = [];
+        const ends = []; lines.filter(l => l.k >= 4).forEach(l => { if (l.hor) ends.push([[l.a, l.r], [-1, 0]], [[l.b, l.r], [1, 0]]); else ends.push([[l.r, l.a], [0, -1]], [[l.r, l.b], [0, 1]]); });
+        const one = async (c, psm) => { await w.setParameters({ tessedit_pageseg_mode: psm }); const r = await w.recognize(c, {}, { blocks: true, text: false });
+            const wd = (r.data.blocks || []).flatMap(b => (b.paragraphs || []).flatMap(pp => (pp.lines || []).flatMap(l => l.words || [])))[0]; return wd ? { t: String(wd.text || '').trim(), conf: Math.round(wd.confidence) } : null; };
+        try { await w.setParameters({ tessedit_char_whitelist: 'ABCDEFGHJKLMNPRSTUVZĄČĘĖĮŠŲŪŽ0123456789\'' });
+            for (const [p, u] of ends.slice(0, 120)) {
+                // langas aplink linijos galą; burbulo apskritimas ieškomas neįskaitant pačios linijos juostos
+                const a0 = -S * 1.1, a1 = S * 1.3, h = S * 0.7, X0 = Math.round(Math.min(p[0] + u[0] * a0, p[0] + u[0] * a1) - (u[0] ? 0 : h)), Y0 = Math.round(Math.min(p[1] + u[1] * a0, p[1] + u[1] * a1) - (u[1] ? 0 : h));
+                const ww = Math.round(u[0] ? a1 - a0 : 2 * h), hh = Math.round(u[1] ? a1 - a0 : 2 * h);
+                if (X0 < 0 || Y0 < 0 || X0 + ww > cv.width || Y0 + hh > cv.height) continue;
+                const D = x.getImageData(X0, Y0, ww, hh).data; let bx0 = ww, by0 = hh, bx1 = -1, by1 = -1, ink = 0;
+                for (let j = 0; j < hh; j++) for (let i = 0; i < ww; i++) { const k = (j * ww + i) * 4; if (D[k] + D[k + 1] + D[k + 2] >= 384) continue;
+                    const gx = X0 + i, gy = Y0 + j, along = (gx - p[0]) * u[0] + (gy - p[1]) * u[1], off = Math.abs((gx - p[0]) * u[1] - (gy - p[1]) * u[0]);
+                    if (off <= 3) continue; ink++; bx0 = Math.min(bx0, i); by0 = Math.min(by0, j); bx1 = Math.max(bx1, i); by1 = Math.max(by1, j); }
+                if (bx1 < 0 || bx1 - bx0 < S * 0.35 || by1 - by0 < S * 0.35 || Math.abs((bx1 - bx0) - (by1 - by0)) > S * 0.3) continue; // apskrito burbulo nėra
+                const mx = X0 + (bx0 + bx1) / 2, my = Y0 + (by0 + by1) / 2, rr = Math.min(bx1 - bx0, by1 - by0) / 2 * 0.7;
+                if (seen.some(q => Math.hypot(q[0] - mx, q[1] - my) < S * 0.5)) continue;
+                const c = document.createElement('canvas'); c.width = c.height = 160; const cx2 = c.getContext('2d'); cx2.fillStyle = '#fff'; cx2.fillRect(0, 0, 160, 160);
+                cx2.save(); cx2.beginPath(); cx2.arc(80, 80, 50, 0, 7); cx2.clip(); cx2.drawImage(cv, mx - rr, my - rr, rr * 2, rr * 2, 30, 30, 100, 100); cx2.restore(); // tik burbulo vidus, be apskritimo
+                const dd = cx2.getImageData(30, 30, 100, 100).data; let dk = 0; for (let k = 0; k < dd.length; k += 4) if (dd[k] < 128) dk++; if (dk < 30) continue; // tuščias burbulas
+                let res = await one(c, '10'); if (!res || !Kit.AX_LABEL.test(res.t) || res.conf < 50) { const r2 = await one(c, '8'); if (r2 && Kit.AX_LABEL.test(r2.t) && (!res || r2.conf > res.conf)) res = r2; }
+                if (res && Kit.AX_LABEL.test(res.t) && res.conf >= 45) { const pt = toPt([mx, my]); out.push({ s: res.t, x: pt[0], y: pt[1], ang: 0, conf: res.conf, bubble: true }); seen.push([mx, my]); }
+            }
+        } finally { await w.setParameters({ tessedit_pageseg_mode: '11', tessedit_char_whitelist: '' }); }
+        return out;
+    }
+    async function rasterAxes(cv, toPt, items, W, H, scaleN, image) { const L = Kit.rasterLines(cv); if (!L.length) return null; let bub = []; try { bub = await ocrBubbles(cv, L, toPt); } catch (e) { }
+        const g = axPage(Kit.rasterSegs(cv, toPt, L), items.filter(i => !Kit.AX_LABEL.test(i.s)).concat(bub), W, H, scaleN, true, image); if (g) g.bubbles = bub.map(b => b.s + ' (' + b.conf + ' %)'); return g; }
     async function ocrRun(fn) { const run = OCR.q.then(fn, fn); OCR.q = run.catch(() => { }); return run; } // vienas OCR darbas vienu metu
     function ocrPage(items, low, base, lines) { // puslapio laukai iš OCR žodžių ir eilučių
         const f = Kit.analyzeText(items, lines); Object.assign(f, base || {});
@@ -7677,13 +7859,16 @@ const KS = (() => {
         const u = URL.createObjectURL(f), im = new Image(); await new Promise((ok, bad) => { im.onload = ok; im.onerror = () => bad(new Error('nepavyko atidaryti nuotraukos')); im.src = u; });
         const sc = Math.min(1.6, OCR_PX[ocrCfg().q] / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = Math.round(im.width * sc); cv.height = Math.round(im.height * sc);
         const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(im, 0, 0, cv.width, cv.height); URL.revokeObjectURL(u);
-        const r = await ocrCanvas(cv, p => [p[0] / sc * 0.75, p[1] / sc * 0.75], say); return ocrPage(r.items, r.low, { W: im.width * 0.75, H: im.height * 0.75, image: true }, r.lines);
+        const toPt = p => [p[0] / sc * 0.75, p[1] / sc * 0.75], r = await ocrCanvas(cv, toPt, say), pf = ocrPage(r.items, r.low, { W: im.width * 0.75, H: im.height * 0.75, image: true }, r.lines);
+        try { pf.axGeo = await rasterAxes(cv, toPt, r.items, pf.W, pf.H, pf.scale, true); } catch (e) { } return pf;
     }
     async function ocrPdfPage(pg, vp1, say) {
         const sc = Math.min(OCR_PX[ocrCfg().q] / Math.max(vp1.width, vp1.height), Math.sqrt(40e6 / (vp1.width * vp1.height))), vp = pg.getViewport({ scale: sc });
         const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height);
         await pg.render({ canvasContext: x, viewport: vp }).promise;
-        const r = await ocrCanvas(cv, p => [p[0] / sc, p[1] / sc], say); cv.width = cv.height = 1; return ocrPage(r.items, r.low, { W: vp1.width, H: vp1.height }, r.lines);
+        const toPt = p => [p[0] / sc, p[1] / sc], r = await ocrCanvas(cv, toPt, say), f = ocrPage(r.items, r.low, { W: vp1.width, H: vp1.height }, r.lines);
+        try { const sg = await pdfSegsSafe(pg, vp1); f.axGeo = sg.length >= 40 ? axPage(sg, r.items, vp1.width, vp1.height, f.scale) : await rasterAxes(cv, toPt, r.items, vp1.width, vp1.height, f.scale); } catch (e) { }
+        cv.width = cv.height = 1; return f;
     }
     function ocrTexts(name, page) { // pagrindiniam langui: OCR žodžiai kaip PDF tekstai (mastelis, matmenų patikra, žymės)
         const d = ks().docs.find(x => x.name === name), P = d && IDX[d.id] && IDX[d.id][(page || 1) - 1];
@@ -7720,8 +7905,9 @@ const KS = (() => {
             const lib = await pdfLib(), doc = await lib.getDocument({ data: new Uint8Array(await f.arrayBuffer()), isEvalSupported: false }).promise, out = [];
             for (let p = 1; p <= doc.numPages; p++) { const pg = await doc.getPage(p), vp1 = pg.getViewport({ scale: 1 }), t = await pdfTexts(pg, vp1);
                 let fx = Kit.analyzeText(t); fx.W = vp1.width; fx.H = vp1.height;
+                if (t.length >= 3) try { fx.axGeo = axPage(await pdfSegsSafe(pg, vp1), t, vp1.width, vp1.height, fx.scale); } catch (e) { }
                 if ((t.length < 3 || forceOcr) && ocrOn) { say && say('🔤 „' + f.name + '“ ' + p + ' psl. – teksto sluoksnio nėra, atpažįstama (OCR)…');
-                    try { const o = await ocrRun(() => ocrPdfPage(pg, vp1, say)); if (t.length) { o.items = t.map(i => ({ s: i.s, x: i.x, y: i.y, ang: i.ang, conf: 100 })).concat(o.items || []); Object.assign(o, Kit.analyzeText(o.items, o.lines.concat(Kit.analyzeText(t).lines)), { read: 'OCR', W: vp1.width, H: vp1.height }); } fx = o; }
+                    try { const o = await ocrRun(() => ocrPdfPage(pg, vp1, say)); if (t.length) { o.items = t.map(i => ({ s: i.s, x: i.x, y: i.y, ang: i.ang, conf: 100 })).concat(o.items || []); Object.assign(o, Kit.analyzeText(o.items, o.lines.concat(Kit.analyzeText(t).lines)), { read: 'OCR', W: vp1.width, H: vp1.height }); if (fx.axGeo) o.axGeo = fx.axGeo; } fx = o; }
                     catch (e) { ocrErr(e); fx.ocrErr = OCR.err; } }
                 else if (t.length < 3) fx.ocrErr = 'OCR išjungtas';
                 out.push(fx); pg.cleanup && pg.cleanup(); prog && prog(p, doc.numPages); await new Promise(r => setTimeout(r, 0)); }
@@ -7734,7 +7920,7 @@ const KS = (() => {
         summarize(d) { const P = IDX[d.id] || []; const u = a => [...new Set(a)];
             d.sum = { kinds: u(P.flatMap(p => p.kinds || [])), titles: u(P.map(p => p.title).filter(Boolean)).slice(0, 8), drawingNos: u(P.flatMap(p => p.drawingNos || [])).slice(0, 12), rev: u(P.map(p => p.rev).filter(Boolean)).join(', '),
                 scale: u(P.map(p => p.scale).filter(Boolean)).slice(0, 4), address: u(P.flatMap(p => p.address || [])).slice(0, 3), unread: P.filter(p => p.read === 'NEPERSKAITYTA').length, few: P.filter(p => p.read === 'MAŽAI').length,
-                ocr: P.filter(p => p.read === 'OCR').length, ocrConf: (q => q.length ? Math.round(q.reduce((a, p) => a + p.ocr.conf, 0) / q.length) : 0)(P.filter(p => p.ocr && p.ocr.n)), ocrLow: P.reduce((a, p) => a + (p.ocr ? p.ocr.low : 0), 0), ocrErr: (P.find(p => p.ocrErr) || {}).ocrErr || '',
+                ocr: P.filter(p => p.read === 'OCR').length, ocrConf: (q => q.length ? Math.round(q.reduce((a, p) => a + p.ocr.conf, 0) / q.length) : 0)(P.filter(p => p.ocr && p.ocr.n)), ocrLow: P.reduce((a, p) => a + (p.ocr ? p.ocr.low : 0), 0), ocrErr: (P.find(p => p.ocrErr) || {}).ocrErr || '', axPages: P.filter(p => p.axGeo).length, axBad: P.filter(p => p.axGeo && p.axGeo.checks.some(c => c.status === 'KLAIDA' || c.status === 'ĮSPĖJIMAS')).length,
                 dims: P.reduce((a, p) => a + (p.dims || []).length, 0), marks: u(P.flatMap(p => p.marks || [])).length, elev: u(P.flatMap(p => p.elev || [])).length }; },
         async checkMember(d, noAsk) { // skirtingų projektų dokumentai automatiškai nesujungiami
             const K = ks(), others = K.docs.filter(x => x !== d && Docs.member(x) && IDX[x.id]);
@@ -7807,8 +7993,21 @@ const KS = (() => {
             c.restore(); });
         return n;
     }
+    function drawAxes(c, v) { // atidaryto ir kalibruoto brėžinio ašys: linija, žymės, tarpai (✔ / ⚠)
+        if (!PDFU || !PDFU.cv || pdfCfg().on === false) return 0; const cal = pdfCal(); if (!cal || !cal.ok) return 0; const A = axLive(); if (!A) return 0;
+        const S = p => W2S(P2W(p, cal), v); c.save(); c.font = 'bold 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        A.axes.forEach(x => { const a = S(x.p1), b = S(x.p2), L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+            c.strokeStyle = '#c51162'; c.globalAlpha = 0.85; c.lineWidth = 1.5; c.setLineDash([14, 4, 2, 4]); c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); c.setLineDash([]);
+            [[a, -1], [b, 1]].forEach(([p, sg]) => { const q = [p[0] + u[0] * sg * 13, p[1] + u[1] * sg * 13]; c.globalAlpha = 1; c.fillStyle = '#fff'; c.beginPath(); c.arc(q[0], q[1], 11, 0, 7); c.fill(); c.stroke(); c.fillStyle = '#c51162'; c.fillText(x.label, q[0], q[1]); }); });
+        A.spans.filter(s => !s.total).forEach(s => { const x1 = A.axes.find(x => x.label === s.from), x2 = A.axes.find(x => x.label === s.to); if (!x1 || !x2) return;
+            const m = S([(x1.p1[0] + x2.p1[0]) / 2, (x1.p1[1] + x2.p1[1]) / 2]); c.fillStyle = s.st === 'OK' ? '#2e7d32' : (s.st === 'ĮSPĖJIMAS' ? '#e65100' : '#607d8b');
+            c.fillText((s.mm != null ? s.mm : '?') + (s.st === 'OK' ? ' ✔' : (s.st === 'ĮSPĖJIMAS' ? ' ⚠' : '')), m[0], m[1] + 26); });
+        c.restore(); return A.axes.length;
+    }
     function drawOverlay(c, v) {
-        const K = project.ks; if (!K || K.show === false || !K.results || pdfMode) return;
+        const K = project.ks; if (!K || K.show === false || pdfMode) return;
+        if (!K.layer || K.layer === 'axes') try { drawAxes(c, v); } catch (e) { }
+        if (!K.results) return;
         const fl = project.fl || 0;
         ['slab', 'fnd', 'ring', 'lint'].forEach(id => { const r = K.results[id]; if (!r) return; if (K.layer && K.layer !== id && !(sel && sel.agent === id)) return; drawObjs(c, v, r.objects.filter(o => o.floor === fl && (id !== 'slab' || K.layer === 'slab')), 1, id); });
         if (sel && sel.agent !== 'fnd' && sel.agent !== 'ring' && sel.agent !== 'lint' && sel.floor === fl) drawObjs(c, v, [sel], 1, sel.agent);
@@ -7830,7 +8029,7 @@ const KS = (() => {
             h += `<div class="f-note">Planner sudaro planą (su priklausomybėmis), duoda užduotis, tikrina rezultatus, grąžina klaidas taisyti ir perkelia patikrintus duomenis į projektą. „Atlikta“ rodoma tik kai rezultatas perduotas, koordinatės ir atvaizdavimas patikrinti, projektas išsaugotas.</div>
               <div class="f-label">Ką analizuoti</div><div class="chips" style="flex-wrap:wrap">${AGENT_IDS.map(id => `<div class="chip${(K.want || AGENT_IDS).includes(id) ? ' on' : ''}" data-want="${id}">${AG[id].icon} ${AG[id].name.replace(' agentas', '')}</div>`).join('')}</div>
               <div class="f-btns"><button class="f-btn pri" id="ksRun">▶ Paleisti Planner</button><button class="f-btn" id="ksShow">${K.show === false ? '👁 Rodyti rezultatus plane' : '🙈 Slėpti iš plano'}</button></div>
-              <div class="f-label">Plane rodyti</div><div class="chips" style="flex-wrap:wrap">${[['', 'pamatai + žiedai + sąramos'], ['fnd', '🏗️ pamatai'], ['ring', '🌀 žiedai'], ['lint', '🧱 sąramos'], ['slab', '🟫 perdangos']].map(([k, t]) => `<div class="chip${(K.layer || '') === k ? ' on' : ''}" data-layer="${k}">${t}</div>`).join('')}</div>`;
+              <div class="f-label">Plane rodyti</div><div class="chips" style="flex-wrap:wrap">${[['', 'pamatai + žiedai + sąramos + ašys'], ['axes', '📐 ašys'], ['fnd', '🏗️ pamatai'], ['ring', '🌀 žiedai'], ['lint', '🧱 sąramos'], ['slab', '🟫 perdangos']].map(([k, t]) => `<div class="chip${(K.layer || '') === k ? ' on' : ''}" data-layer="${k}">${t}</div>`).join('')}</div>`;
             const stale = Object.keys(K.stale); if (stale.length) h += `<div class="f-note" style="background:#fff3e0">⚠ Reikia pertikrinti: ${stale.map(id => AG[id].name + ' – ' + esc(K.stale[id])).join('; ')}</div>`;
             if (P) {
                 const old = P.model !== cur;
@@ -7855,6 +8054,7 @@ const KS = (() => {
             if (r) {
                 if (r.needs.length) h += `<div class="f-label">Trūksta duomenų</div><div class="f-note" style="background:#fff3e0">${r.needs.map(esc).join('<br>')}</div>`;
                 if (r.issues.length) h += `<div class="f-label">Neatitikimai</div><div class="f-note">${r.issues.slice(0, 30).map(i => badge(i.level === 'INFO' ? 'INFO' : i.level, i.level) + ' ' + esc(i.text)).join('<br>')}</div>`;
+                if ((r.axes || []).length) h += `<div class="f-label">📐 Ašys dokumentuose</div><div class="f-note" style="font-size:12.5px">${r.axes.map(a => '<b>' + esc(a.docName + ' ' + a.page + ' psl.') + '</b> ' + esc(a.labels.join(' | ')) + ': ' + a.spans.map(x => esc(x.from + '–' + x.to) + ' ' + (x.mm != null ? x.mm : '?') + (x.st === 'OK' ? ' ✔' : (x.st === 'ĮSPĖJIMAS' ? ' ⚠' : ''))).join(' · ')).join('<br>')}</div>`;
                 h += `<div class="f-label">Patikros</div>` + tbl(['Patikra', 'Būsena'], r.checks.map(c => `<tr><td class="l">${esc(c.name)}${c.note ? '<br><small>' + esc(c.note) + '</small>' : ''}</td><td>${badge(c.status)}</td></tr>`));
                 h += `<div class="f-label">Aptikti objektai (${r.objects.length}) – paspauskite, kad matytumėte kilmę</div>` + tbl(['Objektas', 'Aukštas', 'Būsena'], r.objects.slice(0, 150).map(o => `<tr data-obj="${esc(o.id)}" style="cursor:pointer"><td class="l">${esc(o.label)} · ${esc(o.type)}${o.pending ? ' <b style="color:#b26a00">(yra nauja versija)</b>' : ''}</td><td>${o.floor + 1}</td><td>${badge(o.status, OBJ_TXT[o.status])}</td></tr>`));
                 h += `<div class="f-btns"><button class="f-btn pri" id="ksAppr">✔ Patvirtinti patikrintus</button><button class="f-btn" id="ksRun1">▶ Tik šis agentas</button></div>`;
@@ -7865,7 +8065,7 @@ const KS = (() => {
               <div class="f-label">🔤 OCR</div><div class="chips" style="flex-wrap:wrap"><div class="chip${ocrCfg().on !== false ? ' on' : ''}" data-ocr="on">${ocrCfg().on !== false ? '✅ įjungtas' : '⬜ išjungtas'}</div><div class="chip${ocrCfg().q !== 'fine' ? ' on' : ''}" data-ocr="fast">greitas (~3200 px)</div><div class="chip${ocrCfg().q === 'fine' ? ' on' : ''}" data-ocr="fine">tikslus (~6000 px, lėtas)</div></div>${OCR.err ? `<div class="f-note" style="color:#c62828">OCR klaida: ${esc(OCR.err)}</div>` : ''}
               <div class="f-btns"><button class="f-btn pri" id="ksAdd">➕ Pridėti PDF / nuotraukas</button></div>`;
             h += K.docs.length ? tbl(['Dokumentas', 'Puslapiai', 'Projektui'], K.docs.map(d => { const s = d.sum || {};
-                return `<tr><td class="l"><b>${esc(d.name)}</b><br><small>${esc((s.kinds || []).map(k => Kit.KIND_TXT[k]).join(', ') || 'turinys neatpažintas')}${s.drawingNos && s.drawingNos.length ? ' · ' + esc(s.drawingNos.slice(0, 3).join(', ')) : ''}${s.rev ? ' · laida ' + esc(s.rev) : ''}${s.scale && s.scale.length ? ' · M 1:' + s.scale.join(', 1:') : ''}<br>matmenų ${s.dims || 0}, žymių ${s.marks || 0}, altitudžių ${s.elev || 0}${s.ocr ? ' · 🔤 OCR ' + s.ocr + ' psl., patikimumas ~' + s.ocrConf + ' %' + (s.ocrLow ? ', neaiškių žodžių ' + s.ocrLow : '') : ''}${s.unread ? ' · <b style="color:#b26a00">neperskaityta ' + s.unread + ' psl.' + (s.ocrErr ? ' (' + esc(s.ocrErr) + ')' : '') + '</b>' : ''}${s.few ? ' · mažai teksto ' + s.few + ' psl.' : ''}${(d.superseded || []).length ? ' · <b style="color:#b26a00">pakeista naujesne redakcija: ' + d.superseded.join(', ') + ' psl.</b>' : ''}${d.err ? ' · klaida: ' + esc(d.err) : ''}</small>
+                return `<tr><td class="l"><b>${esc(d.name)}</b><br><small>${esc((s.kinds || []).map(k => Kit.KIND_TXT[k]).join(', ') || 'turinys neatpažintas')}${s.drawingNos && s.drawingNos.length ? ' · ' + esc(s.drawingNos.slice(0, 3).join(', ')) : ''}${s.rev ? ' · laida ' + esc(s.rev) : ''}${s.scale && s.scale.length ? ' · M 1:' + s.scale.join(', 1:') : ''}<br>matmenų ${s.dims || 0}, žymių ${s.marks || 0}, altitudžių ${s.elev || 0}${s.axPages ? ', 📐 ašys ' + s.axPages + ' psl.' + (s.axBad ? ' <b style="color:#b26a00">(⚠ ' + s.axBad + ')</b>' : ' ✔') : ''}${s.ocr ? ' · 🔤 OCR ' + s.ocr + ' psl., patikimumas ~' + s.ocrConf + ' %' + (s.ocrLow ? ', neaiškių žodžių ' + s.ocrLow : '') : ''}${s.unread ? ' · <b style="color:#b26a00">neperskaityta ' + s.unread + ' psl.' + (s.ocrErr ? ' (' + esc(s.ocrErr) + ')' : '') + '</b>' : ''}${s.few ? ' · mažai teksto ' + s.few + ' psl.' : ''}${(d.superseded || []).length ? ' · <b style="color:#b26a00">pakeista naujesne redakcija: ' + d.superseded.join(', ') + ' psl.</b>' : ''}${d.err ? ' · klaida: ' + esc(d.err) : ''}</small>
                   <div><button class="f-btn" data-dopen="${d.id}" style="width:auto;padding:3px 8px;margin:2px">📄 Rodyti</button><button class="f-btn" data-dinfo="${d.id}" style="width:auto;padding:3px 8px;margin:2px">🔎 Laukai</button><button class="f-btn" data-docr="${d.id}" style="width:auto;padding:3px 8px;margin:2px">🔤 OCR</button><button class="f-btn" data-ddel="${d.id}" style="width:auto;padding:3px 8px;margin:2px">🗑</button></div></td>
                   <td>${d.pages}<br>${badge(d.status === 'INDEKSUOTA' ? 'OK' : (d.status === 'KLAIDA' ? 'KLAIDA' : 'ĮSPĖJIMAS'), d.status)}</td><td>${badge(d.member === 'ATMESTA' ? 'KLAIDA' : (d.member === '?' ? 'ĮSPĖJIMAS' : 'OK'), { PIRMAS: 'pirmas', AUTO: 'atpažinta', PATVIRTINTA: 'patvirtino vartotojas', ATMESTA: 'atmesta', '?': 'neaišku' }[d.member] || d.member)}<br><small>${esc((d.memberEv || []).join('; '))}</small>${d.member === 'ATMESTA' || d.member === '?' ? `<br><button class="f-btn" data-dacc="${d.id}" style="width:auto;padding:3px 8px">priskirti</button>` : ''}${d.member === '?' ? `<button class="f-btn" data-drej="${d.id}" style="width:auto;padding:3px 8px">atmesti</button>` : ''}</td></tr>`; })) : '<div class="f-note">Dokumentų dar nėra.</div>';
             const ch = K.docs.filter(d => (d.changes || []).length); if (ch.length) h += `<div class="f-label">Redakcijų pakeitimai</div><div class="f-note">${ch.flatMap(d => d.changes.map(c => esc(c.no + ' (' + c.rev + '): ' + c.doc + ' ' + c.page + ' psl. → ' + d.name + ' ' + c.newPage + ' psl.; dingo matmenų: ' + (c.gone.join(', ') || '–') + '; nauji: ' + (c.add.join(', ') || '–') + (c.marks.length ? '; žymės: ' + c.marks.join(', ') : '')))).join('<br>')}${'<br>Pažymėta pertikrinti: ' + esc([...new Set(ch.flatMap(d => d.recheck || []))].map(id => AG[id].name).join(', '))}</div>`;
@@ -7943,10 +8143,16 @@ const KS = (() => {
                 correct(agentId, o.id, f, v, sp.querySelector('#kfR').value.slice(0, 200)); showToast('Pataisymas įrašytas – ' + AG[agentId].name + ' pažymėtas pertikrinti', 2600); tab = 'kor'; render(); };
             sp.querySelector('#kfX').onclick = () => proof(agentId, o.id); });
     }
+    function axHtml(g) { // ašys puslapyje: kryptys, tarpai, patikros
+        if (!g) return '<br>📐 Ašys: nerasta (linija + žymė burbule)';
+        return '<br>📐 <b>Ašys</b>' + (g.raster ? ' (iš skeno vaizdo)' : '') + ': ' + g.fams.map(f => esc(f.labels.join(', '))).join(' | ') +
+            '<br>' + g.spans.filter(x => !x.total).map(x => esc(x.from + '–' + x.to) + ' ' + (x.mm != null ? x.mm : '?') + (x.st === 'OK' ? ' ✔' : (x.st === 'ĮSPĖJIMAS' ? ' ⚠' : ' –'))).join(' · ') +
+            '<br>' + g.checks.filter(c => c.status !== 'OK').map(c => badge(c.status) + ' ' + esc(c.name + (c.note ? ': ' + c.note : ''))).join('<br>');
+    }
     async function docInfo(id) {
         await Docs.loadIdx(); const d = ks().docs.find(x => x.id === id), P = IDX[id] || [];
         openSubpanel('🔎 ' + (d ? d.name : ''), P.map((p, i) => `<div class="f-label">${i + 1} psl. · ${badge(p.read === 'TEKSTAS' ? 'OK' : (p.read === 'MAŽAI' || p.read === 'OCR' ? 'ĮSPĖJIMAS' : 'KLAIDA'), p.read === 'TEKSTAS' ? 'perskaityta' : (p.read === 'MAŽAI' ? 'mažai teksto' : (p.read === 'OCR' ? 'OCR · ' + p.ocr.conf + ' %' : 'neperskaityta')))}${(d.superseded || []).includes(i + 1) ? ' ' + badge('ĮSPĖJIMAS', 'pakeista') : ''}</div>
-          <div class="f-note" style="font-size:12.5px">${esc(p.title || '–')}<br>Turinys: ${esc((p.kinds || []).map(k => Kit.KIND_TXT[k]).join(', ') || '–')} · mastelis ${p.scale ? '1:' + p.scale : '–'} · laida ${esc(p.rev || '–')}<br>Brėžinių Nr.: ${esc((p.drawingNos || []).join(', ') || '–')}<br>Ašių kandidatai: ${esc((p.axes || []).join(' ') || '–')}<br>Matmenys (${(p.dims || []).length}): ${esc((p.dims || []).slice(0, 30).join(' '))}<br>Altitudės: ${esc((p.elev || []).join(' ') || '–')}<br>Žymės: ${esc((p.marks || []).join(' ') || '–')}<br>Dydžiai: ${esc((p.sizes || []).slice(0, 20).join(' ') || '–')}<br>Medžiagos: ${esc((p.materials || []).join(', ') || '–')}<br>Nuorodos: ${esc((p.refs || []).join(', ') || '–')}<br>Adresas: ${esc((p.address || []).join(', ') || '–')}${p.ocr ? '<br>🔤 OCR: ' + p.ocr.n + ' žodžių (vid. patikimumas ' + p.ocr.conf + ' %), neaiškių ' + p.ocr.low + (p.ocr.lowSample.length ? ': ' + esc(p.ocr.lowSample.slice(0, 12).join(', ')) : '') : ''}${p.ocrErr ? '<br>OCR: ' + esc(p.ocrErr) : ''}</div>`).join('') + `<div class="f-btns"><button class="f-btn" id="kiB">Atgal</button></div>`, sp => { sp.querySelector('#kiB').onclick = render; });
+          <div class="f-note" style="font-size:12.5px">${esc(p.title || '–')}<br>Turinys: ${esc((p.kinds || []).map(k => Kit.KIND_TXT[k]).join(', ') || '–')} · mastelis ${p.scale ? '1:' + p.scale : '–'} · laida ${esc(p.rev || '–')}<br>Brėžinių Nr.: ${esc((p.drawingNos || []).join(', ') || '–')}<br>Ašių kandidatai: ${esc((p.axes || []).join(' ') || '–')}<br>Matmenys (${(p.dims || []).length}): ${esc((p.dims || []).slice(0, 30).join(' '))}<br>Altitudės: ${esc((p.elev || []).join(' ') || '–')}<br>Žymės: ${esc((p.marks || []).join(' ') || '–')}<br>Dydžiai: ${esc((p.sizes || []).slice(0, 20).join(' ') || '–')}<br>Medžiagos: ${esc((p.materials || []).join(', ') || '–')}<br>Nuorodos: ${esc((p.refs || []).join(', ') || '–')}<br>Adresas: ${esc((p.address || []).join(', ') || '–')}${p.ocr ? '<br>🔤 OCR: ' + p.ocr.n + ' žodžių (vid. patikimumas ' + p.ocr.conf + ' %), neaiškių ' + p.ocr.low + (p.ocr.lowSample.length ? ': ' + esc(p.ocr.lowSample.slice(0, 12).join(', ')) : '') : ''}${p.ocrErr ? '<br>OCR: ' + esc(p.ocrErr) : ''}${axHtml(p.axGeo)}</div>`).join('') + `<div class="f-btns"><button class="f-btn" id="kiB">Atgal</button></div>`, sp => { sp.querySelector('#kiB').onclick = render; });
     }
     function exportCsv() {
         const K = ks(), q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"', L = [['Aukštas', 'Konstrukcija', 'Kiekis', 'Vnt.', 'Agentas', 'Versija', 'Būsena', 'Šaltinis'].map(q).join(';')];
@@ -7960,7 +8166,7 @@ const KS = (() => {
 
     async function init() { ks(); await Board.restore(); await Docs.loadIdx(); const A = ks().agents; AGENT_IDS.forEach(id => { AG[id].state = 'IDLE'; AG[id].task = null; AG[id].steps = []; AG[id].last = null; AG[id].restoreState(A[id]); }); }
     async function sync() { if (Board.pid !== ks().pid) await init(); else await Docs.loadIdx(); } // kitas projektas (naujas / įkeltas failas) – sava Board istorija
-    return { Kit, Board, Agent, AG, Planner, Docs, IDX, OCR, ocrTexts, ocrCfg, init, sync, open, render, drawOverlay, sanitize, modelHash, correct, approve, restoreVersion, examples, ks, setAsk: f => { askHook = f; }, get sel() { return sel; }, set sel(v) { sel = v; } };
+    return { Kit, Board, Agent, AG, Planner, Docs, IDX, OCR, axLive, axisAudit, drawAxes, ocrTexts, ocrCfg, init, sync, open, render, drawOverlay, sanitize, modelHash, correct, approve, restoreVersion, examples, ks, setAsk: f => { askHook = f; }, get sel() { return sel; }, set sel(v) { sel = v; } };
 })();
 
 /* =========================================================

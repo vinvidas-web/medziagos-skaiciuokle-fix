@@ -2,11 +2,11 @@
 
 Data: 2026-10-23 · Aplinka: Chromium (Playwright), telefono ekranas 412×860 · Failas: `kontura.html`
 
-Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs` ir `node tests/ocr.cjs` (reikia `playwright`).
+Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cjs`, `node tests/axes.cjs`, tada `node tests/ataskaita.cjs`.
 
-**Iš viso – PASISEKĖ: 43 · NEPAVYKO: 0 · NETESTUOTA: 4**
+**Iš viso – PASISEKĖ: 61 · NEPAVYKO: 0 · NETESTUOTA: 3**
 
-> Bandyta su testui sugeneruotais PDF ir vaizdais bei programos pavyzdžiais (📐 pavyzdys, 🏢 5 aukštų). OCR laikai – kompiuterio Chromium; telefone bus lėčiau. **Su tikrais statybiniais brėžiniais netestuota.**
+> Bandyta su testui sugeneruotais PDF ir vaizdais bei programos pavyzdžiais (📐 pavyzdys, 🏢 5 aukštų). OCR laikai – kompiuterio Chromium; telefone bus lėčiau. **Su tikrais statybiniais brėžiniais netestuota.** Specifikacijos 20 skyriaus punktai 11 (ašys) ir 12 (mastelis) tikrinami skyriuje „Ašys“ (A1–A16b).
 
 ## Agentų sistema (tests/agents.cjs)
 
@@ -24,8 +24,6 @@ Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs` ir `node tests/ocr.
 | 8 | Aptinkami prieštaringi dokumentų duomenys | ✅ PASISEKĖ | Prieštaravimas: L-1 modelyje 1,20×1,50, arch.pdf 2 psl. – 1,50×1,50 (nesirenkama automatiškai) |
 | 9 | Veikia skenuotų PDF analizė (OCR) | ✅ PASISEKĖ | lapas tik su linijomis: OCR paleistas be klaidų, teksto nerasta → „NEPERSKAITYTA“. Skenai su tekstu – tests/ocr.cjs (O1–O7) |
 | 10 | Veikia nuotraukų analizė (OCR) | ⬜ NETESTUOTA | Tikrinama tests/ocr.cjs (O8–O10): nuotrauka pasukta 2° su triukšmu |
-| 11 | Nustatomos ir tikrinamos pastato ašys | ⬜ NETESTUOTA | Ašių žymių kandidatai išrenkami iš teksto (A B 1 2), bet ašių linijų geometrija ir jų tarpusavio padėtis netikrinama |
-| 12 | Tikrinamas mastelis | ⬜ NETESTUOTA | Mastelis M 1:100 perskaitomas iš teksto (kalibracija – esama 📏 funkcija); automatinis mastelio patikrinimas pagal matmenų grandinę neįgyvendintas |
 | 13 | Tikrinami matmenys (dviguba patikra: formulė ↔ koordinatės) | ✅ PASISEKĖ | didžiausias skirtumas 0,0 mm |
 | 14 | Veikia Board pranešimai | ✅ PASISEKĖ | 62 pranešimų; tipai WARNING,TASK,RESULT,REPORT,QUERY |
 | 15 | Agentai gauna Planner užduotis | ✅ PASISEKĖ | TASK pranešimai visiems 6 |
@@ -38,8 +36,8 @@ Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs` ir `node tests/ocr.
 | 20b | „Užbaigta“ rodoma tik patikrintiems ir perduotiems rezultatams | ✅ PASISEKĖ | neužbaigti: fnd:NEEDS_DATA |
 | 23 | Pataisymai registruojami (ir agentas perskaičiuoja) | ✅ PASISEKĖ | {"st":"COMPLETED","v":{"floor":0,"name":"Pamatų betonas","unit":"m³","v":11.171600000000002},"L":55.858000000000004,"n":2} |
 | 23a | Vartotojo patvirtinti duomenys apsaugoti (nauja versija laukia sprendimo) | ✅ PASISEKĖ | {"n":11,"st":"APPROVED","pending":true,"req":1} |
-| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvlewhxu7qvua","h":"1mia3em","docs":4,"saved":true,"log":174} |
-| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvlewhxu7qvua","h":"1mia3em","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
+| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvlfp2f6do9be","h":"1w4t6u8","docs":4,"saved":true,"log":174} |
+| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvlfp2f6do9be","h":"1w4t6u8","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
 | 22a | Projekto failas (💾 .json) išsaugo ir atkuria agentų duomenis | ✅ PASISEKĖ |  |
 | 24 | Naujas PDF inicijuoja reikalingas pakartotines patikras | ✅ PASISEKĖ | pakeitimai: [{"no":"SRBS32-01-TDP-SK-01","rev":"0 → 1","add":[12500]}]; pertikrinti: fnd |
 | 24a | Pakeistos redakcijos puslapis nebenaudojamas (rostverkas 500, ne 600) | ✅ PASISEKĖ | kandidatai: 500 |
@@ -61,8 +59,34 @@ Skenas: A4 lapas 2480×1754 px (≈212 DPI), tik paveikslėlis, be teksto sluoks
 | O5 | Skenas: dydžiai, altitudė, medžiaga | ✅ PASISEKĖ | dydžiai 600x400 · altitudės -1.2 · c25/30 |
 | O6 | Pamatų agentas: OCR skerspjūvis – tik pasiūlymas su žyma „OCR“ | ✅ PASISEKĖ | Pamato skerspjūvis (plotis × aukštis) nepatvirtintas – dokumentuose rasta: 600×400 (skenas.pdf 1 psl., OCR). Įveskite arba patvirtinkite – spėjimas nenaudojamas. |
 | O7 | Pagrindinis langas: skeno mastelis ir tekstai iš OCR | ✅ PASISEKĖ | {"n":23,"ocr":true,"scale":100} |
-| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 88 % · 11 s |
+| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 89 % · 10 s |
 | O9 | Nuotrauka priskiriama projektui pagal OCR adresą | ✅ PASISEKĖ | AUTO · Senolių g. 32 |
 | O10 | Žiniaraštis iš nuotraukos: prieštaravimas pažymimas kaip OCR | ✅ PASISEKĖ | Prieštaravimas: L-1 modelyje 1,20×1,50, nuotrauka.jpg 1 psl. – 1,50×1,50 (atpažinta OCR – patikrinkite brėžinyje) (nesirenkama automatiškai) |
 | O11 | Pasvirusi nuotrauka (perspektyva) ir ranka rašytas tekstas | ⬜ NETESTUOTA | Perspektyvos ištiesinimas neįdiegtas; ranka rašyto teksto Tesseract patikimai neatpažįsta |
+| E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |
+
+## Ašys – geometrijos patikra (tests/axes.cjs)
+
+Vektoriniai PDF: ašių tinklelis M 1:100 (1–2–3: 6000, 5000; A–B–C: 4000, 3000), brūkšninės ašys, žymės burbuluose abiejuose galuose, matmenų grandinės (vertikalūs matmenys – pasuktas tekstas). Variantai: teisingas, pamatų planas su matmeniu 5100 vietoj 5000, užrašytas M 1:50 (nubraižyta 1:100), žymės ne iš eilės. Skenas: tas pats lapas kaip paveikslėlis (PNG ir PDF be teksto).
+
+| Nr. | Testas | Rezultatas | Pastaba |
+|---|---|---|---|
+| A1 | Ašys randamos: linija + žymė burbule abiejuose galuose | ✅ PASISEKĖ | A,B,C / 1,2,3 · brūkšninės: true |
+| A2 | Lygiagretumas ir statmenumas | ✅ PASISEKĖ | Ašys A, B, C: lygiagretumas OK didžiausias nuokrypis 0,00°; Ašys 1, 2, 3: lygiagretumas OK didžiausias nuokrypis 0,00°; Ašių kryptys statmenos OK kampas tarp krypčių 90,00° |
+| A3 | Tarpai tarp ašių sutampa su matmenimis (horizontalūs ir vertikalūs tekstai) | ✅ PASISEKĖ | A-B 4000 OK, B-C 3000 OK, 1-2 6000 OK, 2-3 5000 OK |
+| A4 | Matmenų grandinė: tarpų suma = bendras matmuo | ✅ PASISEKĖ | Matmenų grandinė A–C: tarpų suma 7000 mm, bendras matmuo 7000 mm; Matmenų grandinė 1–3: tarpų suma 11000 mm, bendras matmuo 11000 mm |
+| A5 | Mastelis patikrintas pagal ašių matmenis | ✅ PASISEKĖ | Mastelis pagal ašių matmenis OK užrašyta M 1:100, pagal matmenis ≈ 1:100,0 |
+| A6 | Žymių eiga nuosekli | ✅ PASISEKĖ |  |
+| A7 | Neteisingai užrašytas mastelis aptinkamas | ✅ PASISEKĖ | Mastelis pagal ašių matmenis KLAIDA užrašyta M 1:50, pagal matmenis ≈ 1:100,0 |
+| A8 | Žymės ne iš eilės (A, C, B) aptinkamos | ✅ PASISEKĖ | Ašys A, C, B: žymių eiga: žymės ne iš eilės: A → C → B; Ašys 1, 2, 3: žymių eiga: nuoseklios |
+| A9 | Matmuo nesutampa su nubraižytu tarpu (5100 / 5000) | ✅ PASISEKĖ | {"k":"2-3","mm":5100,"st":"ĮSPĖJIMAS","c":[5100],"total":false} |
+| A10 | Prieštaravimas tarp dokumentų: ašys 2–3 (architektūra 5000, pamatai 5100) | ✅ PASISEKĖ | Prieštaravimas: ašys 2–3 – 5000 mm (ax_arch.pdf 1 psl.), 5000 mm (ax_mastelis.pdf 1 psl.), 5000 mm (ax_eiga.pdf 1 psl.), 5100 mm (ax_pamatai.pdf 1 psl.) – automatiškai nesirenkama |
+| A11 | Pamatų agentas tikrina pamatų brėžinio ašis | ✅ PASISEKĖ | Išorės juostų ilgis: sienų C suma ↔ ašių koordinatės (dviguba patikra) OK; Ašys ax_pamatai.pdf 1 psl.: A, B, C / 1, 2, 3 ĮSPĖJIMAS; Ašių tarpai sutampa skirtinguose dokumentuose ĮSPĖJIMAS |
+| A12 | Sienos susiejamos su ašimis (centras ašyje – 0 mm) | ✅ PASISEKĖ | Brėžinio kalibracija ↔ ašių matmenys OK A–B: 4000 / 4000 mm; B–C: 3000 / 3000 mm; 1–2: 6000 / 6000 mm; 2–3: 5000 / 5000 mm / Išorės sienų susiejimas su ašimis (ax_arch.pdf 1 psl.) OK S1 → A (centras 0 mm nuo ašies); S2 → 3 (centras 0 mm nuo ašies); S3 → C (centras 0 mm nuo ašies); S4 → 1 (centras 0  |
+| A13 | Kalibracija tikrinama pagal ašių matmenis | ✅ PASISEKĖ | Brėžinio kalibracija ↔ ašių matmenys OK A–B: 4000 / 4000 mm; B–C: 3000 / 3000 mm; 1–2: 6000 / 6000 mm; 2–3: 5000 / 5000 mm |
+| A14 | Pasislinkusi siena parodoma (S3 už ašies C 100 mm) | ✅ PASISEKĖ | {"wall":"S3","axis":"C","off":0.09983055555555609,"t":0.3} |
+| A15 | Ašys nupiešiamos pagrindiniame lange | ✅ PASISEKĖ | nupiešta ašių: 6 |
+| A16 | Skenas (paveikslėlis): ašys iš vaizdo linijų, žymės atpažįstamos burbuluose | ✅ PASISEKĖ | {"bub":["C (76 %)","C (77 %)","B (96 %)","B (96 %)","A (95 %)","A (95 %)","1 (96 %)","1 (96 %)","2 (96 %)","3 (96 %)","3 (96 %)"],"fams":["A,B,C","1,2,3"],"spans":["A-B 4000 OK","B-C 3000 OK","1-2 6000 OK","2-3 5000 OK"],"scale":{"declared":0,"est":45.24173984794226},"raster":true,"sc":[["Matmenys t |
+| A16b | Skenuotas PDF: ašys, tarpai ir mastelis M 1:100 pagal matmenis | ✅ PASISEKĖ | {"raster":true,"fams":["A,B,C","1,2,3"],"spans":["A-B 4000 OK","B-C 3000 OK","1-2 6000 OK","2-3 5000 OK"],"sc":[["Mastelis pagal ašių matmenis","OK","užrašyta M 1:100, pagal matmenis ≈ 1:99,9"],["Matmenų grandinė A–C","OK","tarpų suma 7000 mm, bendras matmuo 7000 mm"],["Matmenų grandinė 1–3","OK","t |
+| A17 | Pasvirusios / kreivos ašys skenuose ir nuotraukose | ⬜ NETESTUOTA | Iš vaizdo randamos tik horizontalios ir vertikalios linijos; pasuktų (> ~0,5°) ar fotografuotų kampu brėžinių ašys neatpažįstamos |
 | E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |

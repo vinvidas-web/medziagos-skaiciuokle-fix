@@ -88,8 +88,6 @@ const FIX = {
     const scanInfo = await ev(() => { const d = KS.ks().docs.find(x => x.name === 'skenuotas.pdf'), P = KS.IDX[d.id][0]; return { read: P.read, err: P.ocrErr || KS.OCR.err || '', ocr: P.ocr }; });
     T(9, 'Veikia skenuotų PDF analizė (OCR)', scanInfo.read === 'NEPERSKAITYTA' && !scanInfo.err && scan[0].status === 'NEPERSKAITYTA', 'lapas tik su linijomis: OCR paleistas be klaidų, teksto nerasta → „' + scan[0].status + '“. Skenai su tekstu – tests/ocr.cjs (O1–O7)');
     T(10, 'Veikia nuotraukų analizė (OCR)', null, 'Tikrinama tests/ocr.cjs (O8–O10): nuotrauka pasukta 2° su triukšmu');
-    T(11, 'Nustatomos ir tikrinamos pastato ašys', null, 'Ašių žymių kandidatai išrenkami iš teksto (' + f.axes.join(' ') + '), bet ašių linijų geometrija ir jų tarpusavio padėtis netikrinama');
-    T(12, 'Tikrinamas mastelis', null, 'Mastelis M 1:' + f.scale + ' perskaitomas iš teksto (kalibracija – esama 📏 funkcija); automatinis mastelio patikrinimas pagal matmenų grandinę neįgyvendintas');
 
     // 13. matmenys: sienų dviguba patikra
     plan = await ev(async () => { await KS.Planner.run(); return KS.ks().plan; });
