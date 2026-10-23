@@ -1,0 +1,86 @@
+[
+ {
+  "nr": "F1",
+  "name": "Rostverkai atpažįstami: 6 juostos, plotis 600 ×4 ir 500 ×2",
+  "res": "PASISEKĖ",
+  "note": "[{\"w\":0.6,\"L\":7,\"clear\":6.4},{\"w\":0.6,\"L\":11,\"clear\":9.9},{\"w\":0.6,\"L\":11,\"clear\":9.9},{\"w\":0.6,\"L\":7,\"clear\":5.9},{\"w\":0.5,\"L\":6,\"clear\":5.45},{\"w\":0.5,\"L\":7,\"clear\":5.9}] · užrašytas M 1:100"
+ },
+ {
+  "nr": "F2",
+  "name": "Rostverkų ilgis ašimis = 49 m (galai iki susikertančių ašių)",
+  "res": "PASISEKĖ",
+  "note": "Σ L = 49.000 m, sankirtų 8"
+ },
+ {
+  "nr": "F3",
+  "name": "Poliai: 9 kvadratiniai 0,3 ir 2 apskriti Ø0,4; ašių burbulai neįskaičiuoti",
+  "res": "PASISEKĖ",
+  "note": "apvalus 0.4, apvalus 0.4, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3"
+ },
+ {
+  "nr": "F4",
+  "name": "Rostverkų plotas 27,525 m² ir dviguba patikra (rastras ↔ analitinis)",
+  "res": "PASISEKĖ",
+  "note": "Rostverkų plotas: sąjunga (rastras 2 cm) ↔ Σ nubraižyta × plotis + sankirtos (dviguba patikra) OK 27,53 / 27,52 m²"
+ },
+ {
+  "nr": "F5",
+  "name": "Plotis patikrintas su specifikacija, aukštis iš jos → betono tūris",
+  "res": "PASISEKĖ",
+  "note": "betonas 13.763 m³ · brėžinyje 600, 500 mm; specifikacijoje R-1 600×500, R-2 500×500"
+ },
+ {
+  "nr": "F6",
+  "name": "Polių skaičius ↔ specifikacija, polių ilgis 9×6 + 2×8 = 70 m",
+  "res": "PASISEKĖ",
+  "note": "P-1: brėžinyje 9, specifikacijoje 9; P-2: brėžinyje 2, specifikacijoje 2 · ilgis 70"
+ },
+ {
+  "nr": "F7",
+  "name": "Kalibruotas brėžinys: sienos ant rostverkų, objektai patikrinti ir perduoti",
+  "res": "PASISEKĖ",
+  "note": "Išorinės sienos ant rostverkų (modelis ↔ pamatų brėžinys) OK visos 4 · 17 obj. patikrinta, didžiausias nuokrypis 0,00 mm · 17 / 17 nupiešta, 17 matoma pikseliuose"
+ },
+ {
+  "nr": "F8",
+  "name": "Modelio siena ne ant rostverko parodoma",
+  "res": "PASISEKĖ",
+  "note": "be rostverko: S1, S3"
+ },
+ {
+  "nr": "F9",
+  "name": "Polių skaičiaus prieštaravimas: brėžinyje 10 kv. polių, specifikacijoje 9",
+  "res": "PASISEKĖ",
+  "note": "P-1: brėžinyje 10, specifikacijoje 9; P-2: brėžinyje 2, specifikacijoje 2"
+ },
+ {
+  "nr": "F10",
+  "name": "Polis ne rostverke (gal kolona) pažymimas",
+  "res": "PASISEKĖ",
+  "note": "1 polių ne rostverke"
+ },
+ {
+  "nr": "F11",
+  "name": "Specifikacijoje nesantis rostverko plotis → aukštis nežinomas, tūris neskaičiuojamas",
+  "res": "PASISEKĖ",
+  "note": "Rostverko aukštis nežinomas (plotis 500, plotis 500) – įveskite h arba įkelkite specifikaciją „R-1 …×…“"
+ },
+ {
+  "nr": "F12",
+  "name": "Nekalibruotas brėžinys: koordinatės brėžinio, sienų palyginimas neatliekamas",
+  "res": "PASISEKĖ",
+  "note": "puslapis nekalibruotas (📏) – koordinatės brėžinio, sienų palyginimas neatliekamas"
+ },
+ {
+  "nr": "F13",
+  "name": "Rostverkai ir poliai skenuotuose brėžiniuose ir nuotraukose",
+  "res": "NETESTUOTA",
+  "note": "Atpažįstama tik vektoriniuose PDF; skenuose (vaizde) rostverkų ir polių nėra ieškoma"
+ },
+ {
+  "nr": "E",
+  "name": "Nebuvo JavaScript klaidų",
+  "res": "PASISEKĖ",
+  "note": ""
+ }
+]

@@ -94,6 +94,20 @@ Ašių atpažinimas – Kit funkcijos (`Kit.findAxes`, `Kit.checkAxes`, skenams 
 | Tarp dokumentų | tos pačios ašių poros (pvz. 2–3) tarpai visuose projekto lapuose; skirtumas > 10 mm → prieštaravimas su visais šaltiniais. |
 | Su modeliu | kai atidarytas brėžinys kalibruotas (📏): kalibracija ↔ ašių matmenys; kiekvienai išorės sienai – artimiausia lygiagreti ašis ir sienos centro atstumas iki jos (mm). Ašys nupiešiamos plane (žymės, tarpai ✔ / ⚠). |
 
+### Rostverkai ir poliai iš pamatų brėžinio
+
+Vykdoma vektoriniams PDF puslapiams, kurių turinys atpažintas kaip „pamatai“ (pamat…, rostverk…, poli…), kai žinomas mastelis (užrašytas arba pagal ašių matmenis). Rezultatus naudoja Pamatų agentas.
+
+| Kas | Kaip |
+|---|---|
+| Rostverkas | Juosta tarp dviejų gretimų lygiagrečių ištisinių linijų (ilgis ≥ 1,2 m, plotis 0,25–1,5 m realiai). Nutrūkusios ties sankirtomis dalys sujungiamos; galai pratęsiami iki susikertančio rostverko ašies (ilgis ašimis) ir jo tolimojo krašto (plotui). Brūkšninės ašys atkrenta, nes susideda iš trumpų brūkšnių. |
+| Plotas | Juostų sąjunga rastru (2 cm, kraštų pikseliai – dalimis), sankirtos skaičiuojamos vieną kartą; dviguba patikra: Σ nubraižytas ilgis × plotis + neuždengtos sankirtos. |
+| Polis | Mažas uždaras kontūras 0,15–0,8 m, beveik kvadratinis (□) arba su kreivėmis (Ø), be teksto viduje (taip atmetami ašių burbulai ir žymės); dubliai (keli kontūrai vienoje vietoje) – vienas polis. Tikrinama, ar polis rostverko juostoje. |
+| Specifikacija | Visų projekto puslapių eilutės: `R-1 … 600x500` (plotis × aukštis), `P-1 … 300x300 L=6000 9 vnt`, `P-2 … Ø400 L=8000 2 vnt`. Plotis brėžinyje ↔ specifikacija → aukštis ir tūris; polių skaičius brėžinyje ↔ specifikacija (nesutapimas – prieštaravimas, nesirenkama); polių ilgis iš specifikacijos. Be specifikacijos aukštis ir polių ilgis neišgalvojami – prašoma įvesti. |
+| Koordinatės | Kalibruotas puslapis (📏) → statinio koordinatės ir patikra, ar modelio išorinės sienos stovi ant rostverkų; nekalibruotas → brėžinio koordinatės (metrais), palyginimas su sienomis neatliekamas. |
+
+Jei pamatų brėžinyje rostverkų / polių rasta, Pamatų agentas kiekius skaičiuoja iš brėžinio, o juostų po sienomis neskelbia (kad nebūtų dvigubai). Jei nerasta – veikia kaip anksčiau (juostos po laikančiomis sienomis).
+
 ### Saugojimas
 
 | Kas | Kur |
@@ -110,7 +124,7 @@ Ašių atpažinimas – Kit funkcijos (`Kit.findAxes`, `Kit.checkAxes`, skenams 
 | Linijų atpažinimas iš vaizdo (skenuose) | Tik ilgos horizontalios / vertikalios linijos ašims; sienų kontūrų iš skeno vaizdo neatpažįstama. |
 | Ašių geometrijos nustatymas ir tikrinimas | **Įgyvendinta** (žr. „Ašių geometrijos patikra“). Neįgyvendinta: pasuktos ar kreivos ašys skenuose ir nuotraukose (iš vaizdo – tik horizontalios / vertikalios), lenktos (radialinės) ašys, ašys be burbulų. Netestuota su tikrais brėžiniais. |
 | Automatinis mastelio patikrinimas pagal matmenų grandinę | **Įgyvendinta** ašių matmenims (užrašytas mastelis ↔ ašių tarpų matmenys). |
-| Pamatų / rostverkų geometrijos atpažinimas iš brėžinio | Juostos išvedamos iš sienų; skerspjūvį tvirtina vartotojas. Rostverkų (ne po sienomis) ir polių nėra. |
+| Pamatų / rostverkų geometrijos atpažinimas iš brėžinio | **Įgyvendinta vektoriniams PDF** (žr. „Rostverkai ir poliai“). Neįgyvendinta: skenuoti brėžiniai ir nuotraukos, įstriži / lenkti rostverkai su kintamu pločiu, poliai, nubraižyti tik linijomis be uždaro kontūro, polių grupės po kolonomis (atskiri pamatai). Netestuota su tikrais brėžiniais. |
 | Pjūvių altitudžių susiejimas su elementais (§25) | Altitudės surenkamos ir rodomos kaip informacija; aukščiai – iš esamo modelio. |
 | Taisymas tiesiai brėžinyje pirštu (§30) | Pataisos įvedamos objekto lange; sienų ir angų geometrija – kaip anksčiau, pagrindiniame lange. |
 | Tikras DI modelio mokymas | Ne. Saugomi patvirtinti pavyzdžiai, bendros taisyklės automatiškai nekeičiamos. |

@@ -2,9 +2,9 @@
 
 Data: 2026-10-23 · Aplinka: Chromium (Playwright), telefono ekranas 412×860 · Failas: `kontura.html`
 
-Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cjs`, `node tests/axes.cjs`, tada `node tests/ataskaita.cjs`.
+Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cjs`, `node tests/axes.cjs`, `node tests/fnd.cjs`, tada `node tests/ataskaita.cjs`.
 
-**Iš viso – PASISEKĖ: 61 · NEPAVYKO: 0 · NETESTUOTA: 3**
+**Iš viso – PASISEKĖ: 74 · NEPAVYKO: 0 · NETESTUOTA: 4**
 
 > Bandyta su testui sugeneruotais PDF ir vaizdais bei programos pavyzdžiais (📐 pavyzdys, 🏢 5 aukštų). OCR laikai – kompiuterio Chromium; telefone bus lėčiau. **Su tikrais statybiniais brėžiniais netestuota.** Specifikacijos 20 skyriaus punktai 11 (ašys) ir 12 (mastelis) tikrinami skyriuje „Ašys“ (A1–A16b).
 
@@ -36,8 +36,8 @@ Paleidimas: `NODE_PATH=$(npm root -g) node tests/agents.cjs`, `node tests/ocr.cj
 | 20b | „Užbaigta“ rodoma tik patikrintiems ir perduotiems rezultatams | ✅ PASISEKĖ | neužbaigti: fnd:NEEDS_DATA |
 | 23 | Pataisymai registruojami (ir agentas perskaičiuoja) | ✅ PASISEKĖ | {"st":"COMPLETED","v":{"floor":0,"name":"Pamatų betonas","unit":"m³","v":11.171600000000002},"L":55.858000000000004,"n":2} |
 | 23a | Vartotojo patvirtinti duomenys apsaugoti (nauja versija laukia sprendimo) | ✅ PASISEKĖ | {"n":11,"st":"APPROVED","pending":true,"req":1} |
-| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvlfp2f6do9be","h":"1w4t6u8","docs":4,"saved":true,"log":174} |
-| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvlfp2f6do9be","h":"1w4t6u8","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
+| 21 | Projektas išsaugomas | ✅ PASISEKĖ | {"pid":"prj_mvlfyiq7cj6u1","h":"f8lp38","docs":4,"saved":true,"log":174} |
+| 22 | Projektas atkuriamas (rezultatai, dokumentai, indeksas, Board istorija) | ✅ PASISEKĖ | {"pid":"prj_mvlfyiq7cj6u1","h":"f8lp38","docs":4,"idx":5,"log":174,"st":"COMPLETED"} |
 | 22a | Projekto failas (💾 .json) išsaugo ir atkuria agentų duomenis | ✅ PASISEKĖ |  |
 | 24 | Naujas PDF inicijuoja reikalingas pakartotines patikras | ✅ PASISEKĖ | pakeitimai: [{"no":"SRBS32-01-TDP-SK-01","rev":"0 → 1","add":[12500]}]; pertikrinti: fnd |
 | 24a | Pakeistos redakcijos puslapis nebenaudojamas (rostverkas 500, ne 600) | ✅ PASISEKĖ | kandidatai: 500 |
@@ -59,7 +59,7 @@ Skenas: A4 lapas 2480×1754 px (≈212 DPI), tik paveikslėlis, be teksto sluoks
 | O5 | Skenas: dydžiai, altitudė, medžiaga | ✅ PASISEKĖ | dydžiai 600x400 · altitudės -1.2 · c25/30 |
 | O6 | Pamatų agentas: OCR skerspjūvis – tik pasiūlymas su žyma „OCR“ | ✅ PASISEKĖ | Pamato skerspjūvis (plotis × aukštis) nepatvirtintas – dokumentuose rasta: 600×400 (skenas.pdf 1 psl., OCR). Įveskite arba patvirtinkite – spėjimas nenaudojamas. |
 | O7 | Pagrindinis langas: skeno mastelis ir tekstai iš OCR | ✅ PASISEKĖ | {"n":23,"ocr":true,"scale":100} |
-| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 89 % · 10 s |
+| O8 | Nuotrauka (pasukta 2°, triukšmas): žymės ir dydžiai | ✅ PASISEKĖ | žymės L-1,D-1 · dydžiai 1500x1500,900x2100 · M 1:50 · 88 % · 9 s |
 | O9 | Nuotrauka priskiriama projektui pagal OCR adresą | ✅ PASISEKĖ | AUTO · Senolių g. 32 |
 | O10 | Žiniaraštis iš nuotraukos: prieštaravimas pažymimas kaip OCR | ✅ PASISEKĖ | Prieštaravimas: L-1 modelyje 1,20×1,50, nuotrauka.jpg 1 psl. – 1,50×1,50 (atpažinta OCR – patikrinkite brėžinyje) (nesirenkama automatiškai) |
 | O11 | Pasvirusi nuotrauka (perspektyva) ir ranka rašytas tekstas | ⬜ NETESTUOTA | Perspektyvos ištiesinimas neįdiegtas; ranka rašyto teksto Tesseract patikimai neatpažįsta |
@@ -89,4 +89,25 @@ Vektoriniai PDF: ašių tinklelis M 1:100 (1–2–3: 6000, 5000; A–B–C: 400
 | A16 | Skenas (paveikslėlis): ašys iš vaizdo linijų, žymės atpažįstamos burbuluose | ✅ PASISEKĖ | {"bub":["C (76 %)","C (77 %)","B (96 %)","B (96 %)","A (95 %)","A (95 %)","1 (96 %)","1 (96 %)","2 (96 %)","3 (96 %)","3 (96 %)"],"fams":["A,B,C","1,2,3"],"spans":["A-B 4000 OK","B-C 3000 OK","1-2 6000 OK","2-3 5000 OK"],"scale":{"declared":0,"est":45.24173984794226},"raster":true,"sc":[["Matmenys t |
 | A16b | Skenuotas PDF: ašys, tarpai ir mastelis M 1:100 pagal matmenis | ✅ PASISEKĖ | {"raster":true,"fams":["A,B,C","1,2,3"],"spans":["A-B 4000 OK","B-C 3000 OK","1-2 6000 OK","2-3 5000 OK"],"sc":[["Mastelis pagal ašių matmenis","OK","užrašyta M 1:100, pagal matmenis ≈ 1:99,9"],["Matmenų grandinė A–C","OK","tarpų suma 7000 mm, bendras matmuo 7000 mm"],["Matmenų grandinė 1–3","OK","t |
 | A17 | Pasvirusios / kreivos ašys skenuose ir nuotraukose | ⬜ NETESTUOTA | Iš vaizdo randamos tik horizontalios ir vertikalios linijos; pasuktų (> ~0,5°) ar fotografuotų kampu brėžinių ašys neatpažįstamos |
+| E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |
+
+## Rostverkai ir poliai (tests/fnd.cjs)
+
+Vektorinis pamatų planas M 1:100: perimetro rostverkas 600 mm ašyse 1, 3, A, C (11 × 7 m), vidiniai 500 mm ašyje 2 ir ašyje B (1–2), nubraižyti bendru kontūru; 9 kvadratiniai poliai 300×300 ašių sankirtose su įstrižainėmis, 2 gręžtiniai Ø400 (Bezier apskritimai); ašių burbulai – taip pat apskritimai. Rankinis atsakymas: ilgis ašimis 49 m, plotas 27,525 m², betonas 13,76 m³, polių ilgis 70 m. Antras variantas: papildomas polis ne rostverke, specifikacijoje 9 polių vietoj 10, R-2 nėra, brėžinys nekalibruotas.
+
+| Nr. | Testas | Rezultatas | Pastaba |
+|---|---|---|---|
+| F1 | Rostverkai atpažįstami: 6 juostos, plotis 600 ×4 ir 500 ×2 | ✅ PASISEKĖ | [{"w":0.6,"L":7,"clear":6.4},{"w":0.6,"L":11,"clear":9.9},{"w":0.6,"L":11,"clear":9.9},{"w":0.6,"L":7,"clear":5.9},{"w":0.5,"L":6,"clear":5.45},{"w":0.5,"L":7,"clear":5.9}] · užrašytas M 1:100 |
+| F2 | Rostverkų ilgis ašimis = 49 m (galai iki susikertančių ašių) | ✅ PASISEKĖ | Σ L = 49.000 m, sankirtų 8 |
+| F3 | Poliai: 9 kvadratiniai 0,3 ir 2 apskriti Ø0,4; ašių burbulai neįskaičiuoti | ✅ PASISEKĖ | apvalus 0.4, apvalus 0.4, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3, kvadratinis 0.3 |
+| F4 | Rostverkų plotas 27,525 m² ir dviguba patikra (rastras ↔ analitinis) | ✅ PASISEKĖ | Rostverkų plotas: sąjunga (rastras 2 cm) ↔ Σ nubraižyta × plotis + sankirtos (dviguba patikra) OK 27,53 / 27,52 m² |
+| F5 | Plotis patikrintas su specifikacija, aukštis iš jos → betono tūris | ✅ PASISEKĖ | betonas 13.763 m³ · brėžinyje 600, 500 mm; specifikacijoje R-1 600×500, R-2 500×500 |
+| F6 | Polių skaičius ↔ specifikacija, polių ilgis 9×6 + 2×8 = 70 m | ✅ PASISEKĖ | P-1: brėžinyje 9, specifikacijoje 9; P-2: brėžinyje 2, specifikacijoje 2 · ilgis 70 |
+| F7 | Kalibruotas brėžinys: sienos ant rostverkų, objektai patikrinti ir perduoti | ✅ PASISEKĖ | Išorinės sienos ant rostverkų (modelis ↔ pamatų brėžinys) OK visos 4 · 17 obj. patikrinta, didžiausias nuokrypis 0,00 mm · 17 / 17 nupiešta, 17 matoma pikseliuose |
+| F8 | Modelio siena ne ant rostverko parodoma | ✅ PASISEKĖ | be rostverko: S1, S3 |
+| F9 | Polių skaičiaus prieštaravimas: brėžinyje 10 kv. polių, specifikacijoje 9 | ✅ PASISEKĖ | P-1: brėžinyje 10, specifikacijoje 9; P-2: brėžinyje 2, specifikacijoje 2 |
+| F10 | Polis ne rostverke (gal kolona) pažymimas | ✅ PASISEKĖ | 1 polių ne rostverke |
+| F11 | Specifikacijoje nesantis rostverko plotis → aukštis nežinomas, tūris neskaičiuojamas | ✅ PASISEKĖ | Rostverko aukštis nežinomas (plotis 500, plotis 500) – įveskite h arba įkelkite specifikaciją „R-1 …×…“ |
+| F12 | Nekalibruotas brėžinys: koordinatės brėžinio, sienų palyginimas neatliekamas | ✅ PASISEKĖ | puslapis nekalibruotas (📏) – koordinatės brėžinio, sienų palyginimas neatliekamas |
+| F13 | Rostverkai ir poliai skenuotuose brėžiniuose ir nuotraukose | ⬜ NETESTUOTA | Atpažįstama tik vektoriniuose PDF; skenuose (vaizde) rostverkų ir polių nėra ieškoma |
 | E | Nebuvo JavaScript klaidų | ✅ PASISEKĖ |  |
